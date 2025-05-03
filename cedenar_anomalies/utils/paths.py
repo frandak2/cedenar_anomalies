@@ -1,14 +1,14 @@
-from pyprojroot import here
 from pathlib import Path
 from typing import (
-    Union,
     Callable,
     Iterable,
+    Union,
 )
 
-def make_dir_function(
-    dir_name: Union[str, Iterable[str]]
-) -> Callable[..., Path]:
+from pyprojroot import here
+
+
+def make_dir_function(dir_name: Union[str, Iterable[str]]) -> Callable[..., Path]:
     """Generate a fucntion that converts a string or iterable of strings into
     a path relative to the project directory.
 
@@ -26,15 +26,18 @@ def make_dir_function(
 
     def dir_path(*args) -> Path:
         if isinstance(dir_name, str):
-            return here().joinpath(dir_name, *args)
-        else:
-            return here().joinpath(*dir_name, *args)
+            return Path(here().joinpath(dir_name, *args))
+
+        return Path(here().joinpath(*dir_name, *args))
 
     return dir_path
 
+
 project_dir = make_dir_function("")
 
-for dir_type in [
+
+def create_dir_variables():
+    dirs = [
         ["data"],
         ["data", "raw"],
         ["data", "processed"],
@@ -44,7 +47,16 @@ for dir_type in [
         ["notebooks"],
         ["references"],
         ["reports"],
-        ["reports", "figures"]
-    ]:
-    dir_var = '_'.join(dir_type) + "_dir"
-    exec(f"{dir_var} = make_dir_function({dir_type})")
+        ["reports", "figures"],
+    ]
+
+    result = {}
+    for dir_type in dirs:
+        dir_var = "_".join(dir_type) + "_dir"
+        result[dir_var] = make_dir_function(dir_type)
+
+    return result
+
+
+# Luego asignar las variables globalmente
+globals().update(create_dir_variables())

@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "cedenar_anomalies"
+version = "0.1.0"
+description = "Análisis y procesamiento de datos para identificar anomalías mediante clustering difuso"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "cedenar_anomalies"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+pandas = ">=2.2.3,<3.0.0"
+pyspark = ">=3.5.5,<4.0.0"
+fuzzy-c-means = ">=1.7.2,<2.0.0"
+seaborn = ">=0.13.2,<0.14.0"
+scikit-learn = ">=1.6.1,<2.0.0"
+numpy = "^1.26.0"
+matplotlib = "^3.8.0"
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.0"
+invoke = "^2.2.0"
+black = "^24.0.0"
+nbdime = "^3.2.0"
+plotly = "^5.18.0"
+pyjanitor = "^0.27.0"
+pyprojroot = "^0.3.0"
+polars = "^1.28.1"
+openpyxl = "^3.1.5"
+pandas-stubs = "^2.2.3.250308"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.13.0"
+pylint = "^3.3.2"
+pytest = "^8.3.4"
+coverage = "^7.6.10"
+pre-commit = "^4.1.0"
+ruff = "^0.9.10"
+setuptools = "^80.0.0"
+types-invoke = "^2.0.0.10"
+[tool.ruff]
+line-length = 90
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["I", "E501", "E4", "E7", "E9", "F", "C901"]
+ignore = ["E721"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

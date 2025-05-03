@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+venv/
 build/
 develop-eggs/
 dist/
@@ -66,3 +67,11 @@ target/
 
 # ipynb checkpoints
 .ipynb_checkpoints
+
+# Folders and files
+.code_quality/
+.idea/
+*.Ds_Store
+*.csv
+*.xlsx
+*.txt

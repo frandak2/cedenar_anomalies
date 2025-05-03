@@ -12,13 +12,6 @@ conda env create -f environment.yml
 activate cedenar_anomalies
 ```
 
-or 
-
-```bash
-mamba env create -f environment.yml
-activate cedenar_anomalies
-```
-
 The packages necessary to run the project are now installed inside the conda environment.
 
 **Note: The following sections assume you are located in your conda environment.**
