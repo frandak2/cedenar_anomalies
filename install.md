@@ -34,7 +34,8 @@ To use the module inside your notebooks, add `%autoreload` at the top of your no
 Example of module usage :
 
 ```python
-from cedenar_anomalies.utils.paths import data_dir
+from cedenar_anomalies_1.utils.paths import data_dir
+
 data_dir()
 ```
 

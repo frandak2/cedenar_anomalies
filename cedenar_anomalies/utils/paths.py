@@ -9,14 +9,14 @@ from pyprojroot import here
 
 
 def make_dir_function(dir_name: Union[str, Iterable[str]]) -> Callable[..., Path]:
-    """Generate a fucntion that converts a string or iterable of strings into
+    """Generate a function that converts a string or iterable of strings into
     a path relative to the project directory.
 
     Args:
         dirname: Name of the subdirectories to extend the path of the main
             project.
             If an iterable of strings is passed as an argument, then it is
-            collapsed to a single steing with anchors dependent on the
+            collapsed to a single string with anchors dependent on the
             operating system.
 
     Returns:
@@ -60,3 +60,11 @@ def create_dir_variables():
 
 # Luego asignar las variables globalmente
 globals().update(create_dir_variables())
+
+
+def data_processed_dir():
+    return None
+
+
+def data_raw_dir():
+    return None
