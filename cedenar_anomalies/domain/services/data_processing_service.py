@@ -37,6 +37,7 @@ class DataProcessingService:
         self.df_uid_conversion = None
         self.df_anomalies = None
         self.processed_data = None
+        self.df_ponderado = None
 
         # Atributos para reportes y configuración
         self.item_ids = []
@@ -320,6 +321,108 @@ class DataProcessingService:
         # Optional: print dtypes for verification
         # logging.info(f"Final dtypes:\n{df.dtypes}")
         return df
+
+    def merge_and_clean(
+        self,
+        anomalies_df: pd.DataFrame,
+        users_df: Optional[pd.DataFrame] = None,
+        ponderado_df: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        """
+        Combina y limpia los datos de anomalías, usuarios y ponderaciones.
+
+        Returns:
+            pd.DataFrame: DataFrame consolidado y limpio listo para análisis.
+        """
+
+        self.logger.info("Iniciando procesamiento de datos...")
+
+        # Guardar los DataFrames de entrada
+        self.df_anomalies = anomalies_df
+        self.df_users = users_df
+        self.df_ponderado = ponderado_df
+
+        cols_anomalies = [
+            "Orden",
+            "Usuario",
+            "Ejecucion",
+            "Codigo",
+            "Descripcion",
+            "Motivo",
+            "kWh Rec",
+            "Factor",
+            "Zona",
+        ]
+        df_anomalies = self.df_anomalies[cols_anomalies].copy()
+
+        df_expanded = df_anomalies.assign(
+            Codigo=df_anomalies["Codigo"].astype(str).str.split("/")
+        ).explode("Codigo")
+        df_expanded["Codigo"] = df_expanded["Codigo"].str.strip()
+
+        df_merge_anom_pond = pd.merge(
+            df_expanded,
+            self.df_ponderado[["Item", "id", "Nombre", "puntaje", "evaluacion"]].copy(),
+            how="left",
+            left_on="Codigo",
+            right_on="Item",
+        )
+        df_merge_anom_pond.drop(columns=["Item"], inplace=True)
+
+        columnas_deseadas = [
+            "PRODUCTO",
+            "AREA",
+            "PLAN_COMERCIAL",
+            "TRAFO_OPEN",
+            "FASES",
+            "KVA",
+            "LATI_USU",
+            "LONG_USU",
+        ]
+        df_users = self.df_users[columnas_deseadas].copy()
+
+        df_merge_anom_pond_us = pd.merge(
+            df_merge_anom_pond,
+            df_users,
+            left_on="Usuario",
+            right_on="PRODUCTO",
+            how="left",
+        )
+
+        columnas_deseadas = [
+            "Orden",
+            "Usuario",
+            "Ejecucion",
+            "Codigo",
+            "Descripcion",
+            "Motivo",
+            "kWh Rec",
+            "Factor",
+            "id",
+            "Nombre",
+            "Factor",
+            "AREA",
+            "PLAN_COMERCIAL",
+            "TRAFO_OPEN",
+            "FASES",
+            "KVA",
+            "LATI_USU",
+            "LONG_USU",
+            "puntaje",
+            "evaluacion",
+            "Zona",
+        ]
+        df_final = df_merge_anom_pond_us[columnas_deseadas].copy()
+        df_final = df_final.drop_duplicates()
+        # Guardamos el resultado para su uso posterior en el pipeline
+        self.processed_data = df_final
+
+        if self.logger:
+            self.logger.info(
+                "Merge y limpieza completados. Filas resultantes: %d", len(df_final)
+            )
+
+        return self.processed_data
 
     def process_data(
         self,

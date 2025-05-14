@@ -60,11 +60,3 @@ def create_dir_variables():
 
 # Luego asignar las variables globalmente
 globals().update(create_dir_variables())
-
-
-def data_processed_dir():
-    return None
-
-
-def data_raw_dir():
-    return None

@@ -1,4 +1,4 @@
 # cedenar_anomalies/domain/models/__init__.py
-from cedenar_anomalies.domain.models.models import AnomaliaData
+from cedenar_anomalies.domain.models.sklearn_fcm_wrapper import SklearnFCMWrapper
 
-__all__ = ["AnomaliaData"]
+__all__ = ["SklearnFCMWrapper"]
