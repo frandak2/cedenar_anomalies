@@ -161,10 +161,19 @@ class DataCleaningService:
                     )
                     self.df[column] = self.df[column].replace(np.nan, False)
 
-                # Convertir 'TRUE'/'FALSE' a True/False si existen
+                # Convertir strings a booleanos
                 if self.df[column].dtype == "object":
-                    self.df[column] = self.df[column].replace(
-                        {"TRUE": True, "FALSE": False}
+                    self.df[column] = (
+                        self.df[column]
+                        .astype(str)
+                        .str.strip()
+                        .str.upper()
+                        .replace({
+                            "TRUE": True,
+                            "FALSE": False,
+                            "SI": True,
+                            "NO": False
+                        })
                     )
 
         return self.df

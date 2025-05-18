@@ -34,10 +34,41 @@ class AnomaliaService:
         Returns:
             int: Número de registros guardados
         """
+        dtype_map = {
+        "AREA": str,
+        "item_288": "Int64",
+        "odt": "Int64",
+        "orden": "Int64",
+        "PLAN_COMERCIAL": str,
+        "Descripcion": str,
+        "reincidente": str,
+        "Anomalia_conf": str,
+        "ZONA": str,
+        "año": "Int64",
+        "LATI_USU": float,
+        "LONG_USU": float,
+        "NIVEL": float,
+        "item_68": bool,
+        "item_74": bool,
+        "item_237": bool,
+        "item_248": str,
+        "item_597": str,
+        "item_602": str,
+        "item_108": str,
+        "item_43": str,
+        "item_603": str,
+        "item_599": str,
+        "item_35": str,
+        "item_598": str,
+        "item_33": str,
+        "item_601": str,
+        "item_24": str,
+        "item_23": str,
+        }
         self.logger.info(f"Cargando datos desde {csv_path} para el año {year}")
 
         # Leer CSV
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path, dtype=dtype_map, low_memory=False)
 
         # Asegurarse de que exista la columna 'ano'
         if "año" not in df.columns:
