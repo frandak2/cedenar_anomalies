@@ -413,7 +413,7 @@ class DataCleaningService:
 
     def clean(self) -> pd.DataFrame:
         """
-        Ejecuta todo el proceso de limpieza en el DataFrame.
+        Ejecuta el proceso de limpieza en el DataFrame.
 
         Returns:
             DataFrame limpio

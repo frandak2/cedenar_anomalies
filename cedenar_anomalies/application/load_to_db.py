@@ -24,11 +24,8 @@ def main():
         "--file",
         type=str,
         help="Ruta al archivo CSV",
-<<<<<<< Updated upstream:cedenar_anomalies/application/load_to_db .py
-        default=str(PROCESSED_DATA_DIR / "dataset_limpio_2024.csv"),
-=======
+
         default=data_processed_dir("dataset_limpio_2024.csv"),
->>>>>>> Stashed changes:cedenar_anomalies/application/load_to_db.py
     )
     parser.add_argument("--year", type=int, help="Año de los datos", default=2024)
 
