@@ -3619,6 +3619,25 @@ spelling = ["pyenchant (>=3.2,<4.0)"]
 testutils = ["gitpython (>3)"]
 
 [[package]]
+name = "pyngrok"
+version = "7.2.8"
+description = "A Python wrapper for ngrok"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "pyngrok-7.2.8-py3-none-any.whl", hash = "sha256:483a7bdbd45ed7375ae20c7eb332f979a3edfe6c23e9d761e9bdde4fb08a952f"},
+    {file = "pyngrok-7.2.8.tar.gz", hash = "sha256:808068c8ef8f2d3a0c05b3e73c0c656971732efb67e68a1fe1ff6397e6f7b4c5"},
+]
+
+[package.dependencies]
+PyYAML = ">=5.1"
+
+[package.extras]
+dev = ["coverage[toml]", "flake8", "flake8-pyproject", "pep8-naming", "psutil", "pytest"]
+docs = ["Sphinx (<8.2)", "mypy", "sphinx-notfound-page", "sphinx-substitution-extensions", "sphinx_autodoc_typehints (==1.25.2)", "types-PyYAML"]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.3"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -5008,4 +5027,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "b354eb130ec5a0f9a69f9c28e4e542bb8cc025d05dcd826ad4afa5c620e28286"
+content-hash = "5add485e428a9527b88a9d06bac97df6e963b2ea3421aff9987afa48c487b2b2"

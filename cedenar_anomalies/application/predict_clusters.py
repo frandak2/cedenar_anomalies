@@ -24,7 +24,7 @@ def main():
     logger.info("Iniciando predicción de clusters por zona...")
 
     # --- Configuración ---
-    data_input_filename = "dataset_predict_clean.csv"
+    data_input_filename = "dataset_train_clean.csv"
     output_filename = "dataset_con_clusters.csv"
     data_path = data_processed_dir(data_input_filename)
     output_path = data_processed_dir(output_filename)

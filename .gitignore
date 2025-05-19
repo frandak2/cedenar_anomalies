@@ -70,6 +70,7 @@ target/
 
 # Folders and files
 .code_quality/
+postgresql/data/
 .idea/
 *.Ds_Store
 *.csv
