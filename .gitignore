@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+.env
 venv/
 build/
 develop-eggs/
@@ -76,3 +77,4 @@ postgresql/data/
 *.csv
 *.xlsx
 *.txt
+*.json
