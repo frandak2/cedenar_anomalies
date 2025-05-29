@@ -27,13 +27,13 @@ def main():
     try:
         # --- Variables de Configuración ---
         # Definir nombres de archivos de entrada (relativos a data_raw_dir)
-        plain_data_filename = "plain5.csv"
+        plain_data_filename = "plain4.csv"
         user_data_filename = "cedenar_data.xlsx"
         uid_conv_filename = "conversion uid orden.xlsx"
         anomalies_filename = "anomalias 2022 23 y 24.xlsx"
 
         # Definir parámetros de procesamiento
-        target_year = 2024
+        target_year = 2022
 
         # Definir lista de IDs de ítems
         item_ids = [
