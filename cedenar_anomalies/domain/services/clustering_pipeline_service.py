@@ -9,7 +9,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import silhouette_score
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler, FunctionTransformer
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, roc_auc_score
+
+from lightgbm import LGBMClassifier
 
 from cedenar_anomalies.domain.models.sklearn_fcm_wrapper import SklearnFCMWrapper
 
@@ -41,7 +46,7 @@ class PipelineClusterFzz:
         self.scores_path = models_dir(f"{distance}_{scores_path}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.scores = []
-        self.numerical_cols = ["Usuario", "LATI_USU", "LONG_USU"]
+        self.numerical_cols = ["LATI_USU", "LONG_USU"]
         self.categorical_cols = ["AREA", "PLAN_COMERCIAL"]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Inicializando PipelineClusterFzz")
@@ -175,6 +180,161 @@ class PipelineClusterFzz:
             pipelines[zona] = joblib.load(model_file)
             self.logger.info(f"Pipeline cargado para zona: {zona}")
         return pipelines
+
+class PipelinePuntaje:
+    def __init__(
+            self,
+            params = {},
+            model_dir=models_dir(),
+            scores_path="class_puntaje.csv",
+            logger: Optional[logging.Logger] = None,
+    ):
+
+        self.model_dir = model_dir
+        self.params = params
+        self.scores_path = models_dir(f"metrics_{scores_path}")
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.scores = []
+        self.numerical_cols = ['LATI_USU', 'LONG_USU', 'KVA']
+        self.categorical_cols = ['AREA', 'PLAN_COMERCIAL', 'TRAFO_OPEN', 'FASES', 'Zona', 'Codigo']
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("Inicializando PipelinePuntaje")
+
+    @staticmethod
+    def do_nothing(X):
+        return X
+
+    @staticmethod
+    def convert_to_categorical(X):
+        X_copy = X.copy()
+        for col in X_copy.columns:
+            X_copy[col] = X_copy[col].astype('category')
+        return X_copy
+
+    def build_pipeline(self):
+        self.logger.info("Construyendo pipeline de preprocesamiento para puntaje.")
+
+        lgbm_class = LGBMClassifier(verbose=-1, objective='multiclass', **self.params)
+
+        do_nothing_transformer = FunctionTransformer(self.do_nothing)
+        convert_type_transformer = FunctionTransformer(self.convert_to_categorical)
+
+        preprocessor = ColumnTransformer(transformers=[
+            ('numeric', do_nothing_transformer, self.numerical_cols),
+            ('cat', convert_type_transformer, self.categorical_cols)],
+            verbose_feature_names_out=False
+        )
+        preprocessor.set_output(transform='pandas')
+
+        pipeline = Pipeline(steps=[
+            ('preprocessor', preprocessor),
+            ('classifier', lgbm_class)
+        ])
+
+        return pipeline
+
+    def fit(self, df: pd.DataFrame) -> Pipeline:
+        self.logger.info("Iniciando entrenamiento para puntaje")
+        df = df.dropna(subset=['puntaje'])
+
+        # Crea la columna combinada para la estratificación
+        # Convertir a string para asegurar que la concatenación funcione bien
+        df['puntaje_zona_stratify'] = df['puntaje'].astype(str) + "_" + df['Zona'].astype(str)
+        # Verificar la distribución de esta nueva columna
+        self.logger.info("Distribución de la columna de estratificación combinada:")
+        self.logger.info(df['puntaje_zona_stratify'].value_counts(normalize=True) * 100)
+
+        # Definir tus features (X) y target (y) desde el DataFrame filtrado df_knn_stratify
+        X = df
+        y = df['puntaje'].astype(int) # El target para KNN
+        stratify_col = df['puntaje_zona_stratify']
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            test_size=0.20,       # 80% entrenamiento, 20% prueba
+            random_state=42,      # Para reproducibilidad
+            stratify=stratify_col # ¡Aquí se usa la columna combinada!
+        )
+
+        self.logger.info(f"Tamaño del conjunto de entrenamiento (X_train): {X_train.shape}")
+        self.logger.info(f"Tamaño del conjunto de prueba (X_test): {X_test.shape}")
+
+        # Puedes verificar la estratificación (opcional pero recomendado)
+        self.logger.info("Distribución del target 'puntaje' en el conjunto de entrenamiento:")
+        self.logger.info(y_train.value_counts(normalize=True) * 100)
+        self.logger.info("Distribución del target 'puntaje' en el conjunto de prueba:")
+        self.logger.info(y_test.value_counts(normalize=True) * 100)
+        pipeline = self.build_pipeline()
+        le = LabelEncoder()
+        y_train_encoded = le.fit_transform(y_train)
+        y_test_encoded = le.transform(y_test)
+        pipeline.fit(X_train, y_train_encoded)
+        y_pred = pipeline.predict(X_test) # Esto devolverá etiquetas codificadas 0..N-1
+
+        # Para las métricas, usa y_test_encoded
+        fscore = f1_score(y_test_encoded, y_pred, average='weighted')
+        pres = precision_score(y_test_encoded, y_pred, average='weighted', zero_division=0) # Añadido zero_division
+        rcall = recall_score(y_test_encoded, y_pred, average='weighted', zero_division=0) # Añadido zero_division
+        accu = accuracy_score(y_test_encoded, y_pred)
+
+        # --- CAMBIO CLAVE AQUÍ ---
+        y_pred_proba_all_classes = pipeline.predict_proba(X_test) # Obtener probabilidades para TODAS las clases
+
+        # Calcular ROC AUC para multiclase
+        # Necesitas y_test original (o y_test_encoded binarizado) y todas las probabilidades
+        # 'ovo' (One-vs-One) o 'ovr' (One-vs-Rest)
+        # 'average' puede ser 'macro' o 'weighted'
+        roc_auc = roc_auc_score(
+            y_test_encoded, # Usar las etiquetas codificadas 0..N-1
+            y_pred_proba_all_classes,
+            multi_class='ovr', # o 'ovo'
+            average='weighted' # o 'macro'
+        )
+        # El DataFrame de scores_data tenía un error de concatenación, lo corrijo
+        scores_data = pd.DataFrame({
+            'Model': [str(self.params)], # Convertir el objeto modelo a string para el DataFrame
+            'F1_Score': [fscore],
+            'Precision': [pres],
+            'Recall': [rcall],
+            'Accuracy': [accu],
+            'Roc_auc': [roc_auc]
+        })
+
+        scores_data.to_csv(self.scores_path, index=False)
+
+        self.logger.info("Entrenamiento completado")
+        joblib.dump(pipeline, self.model_dir / f"pipe_puntaje.pkl")
+        self.logger.info(f"Pipeline guardado para puntaje")
+        return pipeline
+
+    def predict(self, pipeline: Pipeline, df: pd.DataFrame) -> pd.DataFrame:
+        self.logger.info("Iniciando predicción con pipeline entrenado.")
+        df = df.copy()
+
+        # Obtener cluster suave
+        matrix_pertenencia = pipeline.predict_proba(df)
+        puntaje_columns = [f"puntaje_{i+1}" for i in range(matrix_pertenencia.shape[1])]
+        matrix_pertenencia_df = pd.DataFrame(matrix_pertenencia, columns=puntaje_columns)
+
+        # Unir con el dataframe original
+        df = pd.concat(
+            [df.reset_index(drop=True), matrix_pertenencia_df.reset_index(drop=True)],
+            axis=1,
+        )
+        return df
+
+    def load_pipeline(self) -> Pipeline:
+        self.logger.info("Cargando pipeline guardado desde disco.")
+        model_file = self.model_dir / "pipe_puntaje.pkl"
+        
+        if model_file.exists():
+            pipeline = joblib.load(model_file)
+            self.logger.info(f"Pipeline de puntaje cargado correctamente")
+            return pipeline
+        else:
+            self.logger.error(f"No se encontró el archivo del modelo: {model_file}")
+            return None
 
 
 if __name__ == "__main__":

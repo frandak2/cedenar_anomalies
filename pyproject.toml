@@ -32,6 +32,9 @@ greenlet = "^3.2.1"
 python-dotenv = "^1.1.0"
 aiohttp = "^3.11.18"
 click = "^8.1.7"
+lightgbm = "^4.6.0"
+optuna = "^4.3.0"
+optuna-integration = "^4.3.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.13.0"
