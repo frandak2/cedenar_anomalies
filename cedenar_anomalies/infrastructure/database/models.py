@@ -95,6 +95,11 @@ class InferenceModel(Base):
     cluster_0 = Column(Float, nullable=False)
     cluster_1 = Column(Float, nullable=False)
     cluster_2 = Column(Float, nullable=False)
+    puntaje_1 = Column(Float, nullable=False)
+    puntaje_2 = Column(Float, nullable=False)
+    puntaje_3 = Column(Float, nullable=False)
+    puntaje_4 = Column(Float, nullable=False)
+    puntaje_5 = Column(Float, nullable=False)
 
     # Metadata
     fecha_carga = Column(String(50), nullable=True)  # Fecha de carga del registro

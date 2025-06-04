@@ -23,7 +23,7 @@ def main():
         "--file",
         type=str,
         help="Ruta al archivo CSV",
-        default=data_processed_dir("dataset_con_clusters.csv"),
+        default=data_processed_dir("dataset_inference.csv"),
         required=False,  # Cambiado a False porque ya tiene un default
     )
 
