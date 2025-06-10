@@ -350,8 +350,6 @@ class DataProcessingService:
             "Descripcion",
             "Motivo",
             "kWh Rec",
-            "Factor",
-            "Zona",
         ]
         df_anomalies = self.df_anomalies[cols_anomalies].copy()
 
@@ -362,7 +360,7 @@ class DataProcessingService:
 
         df_merge_anom_pond = pd.merge(
             df_expanded,
-            self.df_ponderado[["Item", "id", "Nombre", "puntaje", "evaluacion"]].copy(),
+            self.df_ponderado[["Item", "id", "Nombre", "puntaje"]].copy(),
             how="left",
             left_on="Codigo",
             right_on="Item",
@@ -370,14 +368,20 @@ class DataProcessingService:
         df_merge_anom_pond.drop(columns=["Item"], inplace=True)
 
         columnas_deseadas = [
+            "CLIENTE",
             "PRODUCTO",
             "AREA",
             "PLAN_COMERCIAL",
             "TRAFO_OPEN",
             "FASES",
             "KVA",
+            'CATEGORIA',
+            'SUB_CATEGORIA',
+            "ZONA",
             "LATI_USU",
             "LONG_USU",
+            'LATI_TRAFO',
+            'LONG_TRAFO',
         ]
         df_users = self.df_users[columnas_deseadas].copy()
 
@@ -397,32 +401,100 @@ class DataProcessingService:
             "Descripcion",
             "Motivo",
             "kWh Rec",
-            "Factor",
             "id",
             "Nombre",
-            "Factor",
-            "AREA",
-            "PLAN_COMERCIAL",
             "TRAFO_OPEN",
             "FASES",
             "KVA",
+            "AREA",
+            "PLAN_COMERCIAL",
             "LATI_USU",
             "LONG_USU",
+            'LATI_TRAFO',
+            'LONG_TRAFO',
+            "ZONA",
+            'CATEGORIA',
+            'SUB_CATEGORIA',
             "puntaje",
-            "evaluacion",
-            "Zona",
         ]
-        df_final = df_merge_anom_pond_us[columnas_deseadas].copy()
-        df_final = df_final.drop_duplicates()
+        df_merge_anom_pond_us = df_merge_anom_pond_us[columnas_deseadas].copy()
+        df_merge_anom_pond_us = df_merge_anom_pond_us.drop_duplicates().copy()
+        df_merge_anom_pond_us = df_merge_anom_pond_us.dropna(subset="ZONA").copy()
         # Guardamos el resultado para su uso posterior en el pipeline
-        self.processed_data = df_final
+        self.processed_data = df_merge_anom_pond_us
 
         if self.logger:
             self.logger.info(
-                "Merge y limpieza completados. Filas resultantes: %d", len(df_final)
+                "Merge y limpieza completados. Filas resultantes: %d", len(df_merge_anom_pond_us)
             )
 
         return self.processed_data
+
+    def make_datset_inference(
+            self,
+            anomalies_df: pd.DataFrame,
+            users_df: Optional[pd.DataFrame] = None,
+            ponderado_df: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        """
+        Crea el dataset para la inferencia
+
+        Returns:
+            pd.DataFrame: DataFrame consolidado y limpio listo para inferirce.
+        """
+
+        self.logger.info("Iniciando procesamiento de datos...")
+
+        # Guardar los DataFrames de entrada
+        self.df_anomalies = anomalies_df
+        self.df_users = users_df
+        self.df_ponderado = ponderado_df
+
+        cols_anomalies = [
+            "Orden",
+            "Usuario",
+            "Ejecucion",
+            "Codigo",
+            "Descripcion",
+            "Motivo",
+            "kWh Rec",
+        ]
+        df_anomalies = self.df_anomalies[cols_anomalies].copy()
+
+        df_expanded = df_anomalies.assign(
+            Codigo=df_anomalies["Codigo"].astype(str).str.split("/")
+        ).explode("Codigo")
+        df_expanded["Codigo"] = df_expanded["Codigo"].str.strip()
+
+        df_merge_anom_pond = pd.merge(
+            df_expanded,
+            self.df_ponderado[["Item", "id", "Nombre", "puntaje"]].copy(),
+            how="left",
+            left_on="Codigo",
+            right_on="Item",
+        )
+        df_merge_anom_pond.drop(columns=["Item"], inplace=True)
+
+        df_merge_anom_pond_us = pd.merge(
+            df_merge_anom_pond,
+            self.df_users,
+            left_on="Usuario",
+            right_on="PRODUCTO",
+            how="left",
+        )
+
+        df_merge_anom_pond_us = df_merge_anom_pond_us.drop_duplicates().copy()
+        df_merge_anom_pond_us = df_merge_anom_pond_us.dropna(subset="ZONA").copy()
+        # Guardamos el resultado para su uso posterior en el pipeline
+        self.processed_data = df_merge_anom_pond_us
+
+        if self.logger:
+            self.logger.info(
+                "Merge y limpieza completados. Filas resultantes: %d", len(df_merge_anom_pond_us)
+            )
+
+        return self.processed_data
+
 
     def process_data(
         self,

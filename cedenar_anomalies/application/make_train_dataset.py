@@ -8,7 +8,7 @@ from cedenar_anomalies.domain.services.data_processing_service import (
 )
 
 # Importar utilidades para gestión de rutas
-from cedenar_anomalies.utils.paths import data_processed_dir, data_raw_dir
+from cedenar_anomalies.utils.paths import data_raw_dir, data_interim_dir
 
 # Configurar logging
 logging.basicConfig(
@@ -31,7 +31,7 @@ def main():
         anomalies_filename = "anomalias 2022 23 y 24.xlsx"
 
         # Configuración para archivos de salida
-        processed_output = "dataset_train_clean.csv"
+        processed_output = "01_dataset_train_clean.csv"
         # --- Fin de Configuración ---
 
         logger.info("Configuración cargada con éxito.")
@@ -94,7 +94,7 @@ def main():
         )
 
         # Guardar datos procesados directamente con pandas
-        processed_output_path = data_processed_dir(processed_output)
+        processed_output_path = data_interim_dir(processed_output)
         processed_df.to_csv(processed_output_path, index=False)
         logger.info(f"Dataset procesado guardado en: {processed_output_path}")
 

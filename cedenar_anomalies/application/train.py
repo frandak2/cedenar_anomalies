@@ -9,7 +9,7 @@ from cedenar_anomalies.domain.services.clustering_pipeline_service import (
     PipelineClusterFzz,
     PipelinePuntaje,
 )
-from cedenar_anomalies.utils.paths import data_processed_dir
+from cedenar_anomalies.utils.paths import data_interim_dir
 
 # Configurar logging
 logging.basicConfig(
@@ -25,8 +25,8 @@ def main():
     logger.info("Iniciando entrenamiento de modelos de clustering...")
 
     # Configuración
-    data_filename = "dataset_train_clean.csv"
-    data_path = data_processed_dir(data_filename)
+    data_filename = "01_dataset_train_clean.csv"
+    data_path = data_interim_dir(data_filename)
 
     if not Path(data_path).exists():
         logger.error(f"Archivo de entrenamiento no encontrado: {data_path}")
@@ -51,18 +51,18 @@ def main():
 
         # Entrenar modelos puntaje
         best_params = {
-            "n_estimators": 138,
-            "learning_rate": 0.002,
-            "num_leaves": 184,
-            "max_depth": 3,
-            "min_child_samples": 75,
-            "max_bin": 145,
-            "reg_alpha": 0.002,
-            "reg_lambda": 3.794,
-            "min_gain_to_split": 13.483,
-            "bagging_fraction": 0.984,
-            "bagging_freq": 4,
-            "feature_fraction": 1.0,
+            "n_estimators": 468,
+            "learning_rate": 0.027112035074244662,
+            "num_leaves": 116,
+            "max_depth": 12,
+            "min_child_samples": 22,
+            "max_bin": 225,
+            "reg_alpha": 0.003891437220124611,
+            "reg_lambda": 0.8161960202355869,
+            "min_gain_to_split": 7.269371017270656,
+            "bagging_fraction": 0.9243380690332376,
+            "bagging_freq": 3,
+            "feature_fraction": 0.9616425348024227,
         }
 
         pipe_puntaje = PipelinePuntaje(params=best_params, logger=logger)

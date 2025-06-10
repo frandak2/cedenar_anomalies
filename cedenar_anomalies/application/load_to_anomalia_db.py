@@ -26,7 +26,8 @@ def main():
         help="Ruta al archivo CSV",
         default=data_processed_dir("dataset_limpio_2022.csv"),
     )
-    parser.add_argument("--year", type=int, help="Año de los datos", default=2022)
+    parser.add_argument("--year", type=int, help="Año de los datos", default=2022
+                        )
 
     args = parser.parse_args()
 

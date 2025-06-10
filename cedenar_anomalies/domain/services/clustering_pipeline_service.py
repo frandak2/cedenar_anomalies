@@ -55,16 +55,13 @@ class PipelineClusterFzz:
         self.scores_path = models_dir(f"{distance}_{scores_path}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.scores = []
-        self.numerical_cols = ["LATI_USU", "LONG_USU"]
-        self.categorical_cols = ["AREA", "PLAN_COMERCIAL"]
+        self.numerical_cols = ["LATI_USU","LONG_USU"]
+        self.categorical_cols = ["TRAFO_OPEN","AREA","PLAN_COMERCIAL","SUB_CATEGORIA"]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Inicializando PipelineClusterFzz")
 
     def build_pipeline(self):
         self.logger.info("Construyendo pipeline de preprocesamiento y clustering.")
-
-        # self.numerical_cols = ["kWh Rec", "FASES", "KVA", "LATI_USU", "LONG_USU", "puntaje", "evaluacion"]
-        # self.categorical_cols = ["AREA", "PLAN_COMERCIAL", "TRAFO_OPEN"]
 
         numeric_pipeline = Pipeline(
             [("imputer", SimpleImputer(strategy="mean")), ("scaler", StandardScaler())]
@@ -108,7 +105,8 @@ class PipelineClusterFzz:
 
     def fit(self, df: pd.DataFrame, zona: str) -> Pipeline:
         self.logger.info(f"Iniciando entrenamiento para zona: {zona}")
-        df_zone = df[df["Zona"] == zona].copy()
+        df_zone = df[df["ZONA"] == zona].copy()
+        df_zone = df_zone.drop_duplicates(subset= self.numerical_cols + self.categorical_cols).copy()
         pipeline = self.build_pipeline()
         pipeline.fit(df_zone)
         self.logger.info(f"Entrenamiento completado para zona: {zona}")
@@ -144,9 +142,9 @@ class PipelineClusterFzz:
         silhouette_scores = []
 
         self.logger.info("Entrenando pipelines por zona.")
-        for zona in df["Zona"].unique():
+        for zona in df["ZONA"].unique():
             self.logger.info(f"Procesando zona: {zona}")
-            df_zone = df[df["Zona"] == zona].copy()
+            df_zone = df[df["ZONA"] == zona].copy()
             pipeline = self.fit(df, zona)
             df_with_clusters = self.predict(pipeline, df_zone)
 
@@ -176,7 +174,7 @@ class PipelineClusterFzz:
         df_all = []
         for zona, pipeline in pipelines.items():
             self.logger.info(f"Prediciendo zona: {zona}")
-            df_zone = df[df["Zona"] == zona].copy()
+            df_zone = df[df["ZONA"] == zona].copy()
             df_clustered = self.predict(pipeline, df_zone)
             df_all.append(df_clustered)
         return pd.concat(df_all, ignore_index=True)
@@ -204,8 +202,8 @@ class PipelinePuntaje:
         self.scores_path = models_dir(f"metrics_{scores_path}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.scores = []
-        self.numerical_cols = ["LATI_USU", "LONG_USU"]
-        self.categorical_cols = ["AREA", "PLAN_COMERCIAL", "TRAFO_OPEN", "Zona"]
+        self.numerical_cols = ["LATI_USU","LONG_USU","LATI_TRAFO","LONG_TRAFO"]
+        self.categorical_cols = ["TRAFO_OPEN","FASES","KVA","AREA","PLAN_COMERCIAL","ZONA","CATEGORIA","SUB_CATEGORIA"]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Inicializando PipelinePuntaje")
 
@@ -250,7 +248,7 @@ class PipelinePuntaje:
         # Crea la columna combinada para la estratificación
         # Convertir a string para asegurar que la concatenación funcione bien
         df["puntaje_zona_stratify"] = (
-            df["puntaje"].astype(str) + "_" + df["Zona"].astype(str)
+            df["puntaje"].astype(str) + "_" + df["ZONA"].astype(str)
         )
         # Verificar la distribución de esta nueva columna
         self.logger.info("Distribución de la columna de estratificación combinada:")
@@ -338,7 +336,10 @@ class PipelinePuntaje:
         self.logger.info("Iniciando predicción con pipeline entrenado.")
         df = df.copy()
 
-        # Obtener cluster suave
+        df['puntaje_pred'] = pipeline.predict(df)
+        df['puntaje_pred'] = df.puntaje_pred + 1
+
+        # Obtener propension a puntaje
         matrix_pertenencia = pipeline.predict_proba(df)
         puntaje_columns = [f"puntaje_{i + 1}" for i in range(matrix_pertenencia.shape[1])]
         matrix_pertenencia_df = pd.DataFrame(matrix_pertenencia, columns=puntaje_columns)
