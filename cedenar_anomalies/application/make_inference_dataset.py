@@ -79,7 +79,7 @@ def main():
         processing_service = DataProcessingService(logger=logger)
 
         # Procesar datos
-        processed_df = processing_service.make_datset_inference(
+        processed_df = processing_service.make_dataset_inference(
             anomalies_df=anomalies_df,
             users_df=users_df,
             ponderado_df=ponderado_df,
@@ -118,6 +118,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-

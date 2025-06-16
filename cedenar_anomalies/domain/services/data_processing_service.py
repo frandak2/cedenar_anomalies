@@ -375,13 +375,13 @@ class DataProcessingService:
             "TRAFO_OPEN",
             "FASES",
             "KVA",
-            'CATEGORIA',
-            'SUB_CATEGORIA',
+            "CATEGORIA",
+            "SUB_CATEGORIA",
             "ZONA",
             "LATI_USU",
             "LONG_USU",
-            'LATI_TRAFO',
-            'LONG_TRAFO',
+            "LATI_TRAFO",
+            "LONG_TRAFO",
         ]
         df_users = self.df_users[columnas_deseadas].copy()
 
@@ -410,11 +410,11 @@ class DataProcessingService:
             "PLAN_COMERCIAL",
             "LATI_USU",
             "LONG_USU",
-            'LATI_TRAFO',
-            'LONG_TRAFO',
+            "LATI_TRAFO",
+            "LONG_TRAFO",
             "ZONA",
-            'CATEGORIA',
-            'SUB_CATEGORIA',
+            "CATEGORIA",
+            "SUB_CATEGORIA",
             "puntaje",
         ]
         df_merge_anom_pond_us = df_merge_anom_pond_us[columnas_deseadas].copy()
@@ -425,16 +425,17 @@ class DataProcessingService:
 
         if self.logger:
             self.logger.info(
-                "Merge y limpieza completados. Filas resultantes: %d", len(df_merge_anom_pond_us)
+                "Merge y limpieza completados. Filas resultantes: %d",
+                len(df_merge_anom_pond_us),
             )
 
         return self.processed_data
 
-    def make_datset_inference(
-            self,
-            anomalies_df: pd.DataFrame,
-            users_df: Optional[pd.DataFrame] = None,
-            ponderado_df: Optional[pd.DataFrame] = None,
+    def make_dataset_inference(
+        self,
+        anomalies_df: pd.DataFrame,
+        users_df: Optional[pd.DataFrame] = None,
+        ponderado_df: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         """
         Crea el dataset para la inferencia
@@ -449,6 +450,10 @@ class DataProcessingService:
         self.df_anomalies = anomalies_df
         self.df_users = users_df
         self.df_ponderado = ponderado_df
+
+        self.logger.info("Filas anomalies_df: %d", len(self.df_anomalies))
+        self.logger.info("Filas df_users: %d", len(self.df_users))
+        self.logger.info("Filas df_ponderado: %d", len(self.df_ponderado))
 
         cols_anomalies = [
             "Orden",
@@ -466,6 +471,8 @@ class DataProcessingService:
         ).explode("Codigo")
         df_expanded["Codigo"] = df_expanded["Codigo"].str.strip()
 
+        self.logger.info("Filas df_expanded: %d", len(df_expanded))
+
         df_merge_anom_pond = pd.merge(
             df_expanded,
             self.df_ponderado[["Item", "id", "Nombre", "puntaje"]].copy(),
@@ -475,12 +482,14 @@ class DataProcessingService:
         )
         df_merge_anom_pond.drop(columns=["Item"], inplace=True)
 
+        self.logger.info("Filas df_merge_anom_pond: %d", len(df_merge_anom_pond))
+
         df_merge_anom_pond_us = pd.merge(
             df_merge_anom_pond,
             self.df_users,
             left_on="Usuario",
             right_on="PRODUCTO",
-            how="left",
+            how="right",
         )
 
         df_merge_anom_pond_us = df_merge_anom_pond_us.drop_duplicates().copy()
@@ -490,11 +499,11 @@ class DataProcessingService:
 
         if self.logger:
             self.logger.info(
-                "Merge y limpieza completados. Filas resultantes: %d", len(df_merge_anom_pond_us)
+                "Merge y limpieza completados. Filas resultantes: %d",
+                len(df_merge_anom_pond_us),
             )
 
         return self.processed_data
-
 
     def process_data(
         self,
