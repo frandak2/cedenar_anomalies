@@ -12,13 +12,6 @@ conda env create -f environment.yml
 activate cedenar_anomalies
 ```
 
-or 
-
-```bash
-mamba env create -f environment.yml
-activate cedenar_anomalies
-```
-
 The packages necessary to run the project are now installed inside the conda environment.
 
 **Note: The following sections assume you are located in your conda environment.**
@@ -41,7 +34,8 @@ To use the module inside your notebooks, add `%autoreload` at the top of your no
 Example of module usage :
 
 ```python
-from cedenar_anomalies.utils.paths import data_dir
+from cedenar_anomalies_1.utils.paths import data_dir
+
 data_dir()
 ```
 
