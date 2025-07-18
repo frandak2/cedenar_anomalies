@@ -9,7 +9,7 @@ from cedenar_anomalies.domain.services.data_processing_service import (
 )
 
 # Importar utilidades para gestión de rutas
-from cedenar_anomalies.utils.paths import data_processed_dir, data_raw_dir
+from cedenar_anomalies.utils import paths
 
 # Configurar logging
 logging.basicConfig(
@@ -26,7 +26,7 @@ def main():
 
     try:
         # --- Variables de Configuración ---
-        # Definir nombres de archivos de entrada (relativos a data_raw_dir)
+        # Definir nombres de archivos de entrada (relativos a paths.data_raw_dir)
         plain_data_filename = "plain4.csv"
         user_data_filename = "cedenar_data.xlsx"
         uid_conv_filename = "conversion uid orden.xlsx"
@@ -136,10 +136,10 @@ def main():
         logger.info("Cargando datos de entrada...")
 
         # Crear rutas completas a los archivos
-        anomalies_file = data_raw_dir(anomalies_filename)
-        plain_file = data_raw_dir(plain_data_filename)
-        user_file = data_raw_dir(user_data_filename)
-        uid_conv_file = data_raw_dir(uid_conv_filename)
+        anomalies_file = paths.data_raw_dir(anomalies_filename)
+        plain_file = paths.data_raw_dir(plain_data_filename)
+        user_file = paths.data_raw_dir(user_data_filename)
+        uid_conv_file = paths.data_raw_dir(uid_conv_filename)
 
         # Cargar datos usando pandas directamente
         anomalies_df = (
@@ -201,7 +201,7 @@ def main():
         )
 
         # Guardar datos procesados directamente con pandas
-        processed_output_path = data_processed_dir(processed_output)
+        processed_output_path = paths.data_processed_dir(processed_output)
         processed_df.to_csv(processed_output_path, index=False)
         logger.info(f"Dataset procesado guardado en: {processed_output_path}")
 
@@ -226,7 +226,7 @@ def main():
             return
 
         # Guardar datos limpios directamente con pandas
-        cleaned_output_path = data_processed_dir(cleaned_output)
+        cleaned_output_path = paths.data_processed_dir(cleaned_output)
         cleaned_df.to_csv(cleaned_output_path, index=False)
 
         logger.info("Proceso completo finalizado con éxito.")

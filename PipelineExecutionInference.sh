@@ -3,7 +3,7 @@
 # Script to run the complete pipeline in sequence:
 # 1. make_inference_dataset.py - Prepares the dataset
 # 2. inference.py - Runs the model inference
-# 3. send_to_BQ.py - Sends results to Google BigQuery
+# 3. send_to_BQ_inference.py - Sends results to Google BigQuery
 #
 # This script respects the Poetry environment and project structure.
 
@@ -40,7 +40,7 @@ PROJECT_ROOT="$(pwd)"
 # Define script paths
 MAKE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/make_inference_dataset.py"
 INFERENCE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/inference.py"
-SEND_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/send_to_BQ.py"
+SEND_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/send_to_BQ_infernce.py"
 
 # Check if scripts exist
 for script in "$MAKE_SCRIPT" "$INFERENCE_SCRIPT" "$SEND_SCRIPT"; do

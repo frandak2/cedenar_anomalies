@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # Script to run the complete pipeline in sequence:
-# 1. make_inference_dataset.py - Prepares the dataset
-# 2. inference.py - Runs the model inference
-# 3. send_to_BQ.py - Sends results to Google Sheets
+# 1. make_train_dataset.py - Prepares the dataset
+# 2. train.py - Runs the model training
 #
 # This script respects the Poetry environment and project structure.
 
