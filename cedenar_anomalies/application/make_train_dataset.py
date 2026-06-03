@@ -8,7 +8,7 @@ from cedenar_anomalies.domain.services.data_processing_service import (
 )
 
 # Importar utilidades para gestión de rutas
-from cedenar_anomalies.utils.paths import data_raw_dir, data_interim_dir
+from cedenar_anomalies.utils.paths import data_interim_dir, data_raw_dir
 
 # Configurar logging
 logging.basicConfig(
@@ -28,7 +28,7 @@ def main():
         # Definir nombres de archivos de entrada (relativos a data_raw_dir)
         user_data_filename = "cedenar_data.xlsx"
         ponderado_filename = "items anomalia ponderado.xlsx"
-        anomalies_filename = "anomalias 2022 23 y 24.xlsx"
+        anomalies_filename = "anomalias 2023-2026.xlsx"
 
         # Configuración para archivos de salida
         processed_output = "01_dataset_train_clean.csv"
