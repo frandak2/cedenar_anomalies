@@ -40,7 +40,7 @@ PROJECT_ROOT="$(pwd)"
 # Define script paths
 MAKE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/make_inference_dataset.py"
 INFERENCE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/inference.py"
-SEND_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/send_to_BQ_infernce.py"
+SEND_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/send_to_BQ_inference.py"
 
 # Check if scripts exist
 for script in "$MAKE_SCRIPT" "$INFERENCE_SCRIPT" "$SEND_SCRIPT"; do

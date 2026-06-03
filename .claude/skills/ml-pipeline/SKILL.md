@@ -44,10 +44,6 @@ poetry run python cedenar_anomalies/application/send_to_BQ_inference.py
 ```
 Los logs se anexan a `pipeline_execution_inference.log`.
 
-> Aviso: el archivo `PipelineExecutionInference.sh` referencia `send_to_BQ_infernce.py` (typo).
-> El archivo real es `send_to_BQ_inference.py`. Si el script falla por "Script not found",
-> corrige el nombre en `PipelineExecutionInference.sh` (commit `fix(ml): ...`).
-
 ## Buenas prácticas
 
 - Entrena/infiere SIEMPRE con `poetry run` (respeta el entorno y la estructura del proyecto).
