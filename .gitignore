@@ -79,3 +79,6 @@ postgresql/data/
 *.txt
 *.json
 *.pkl
+
+# Configuración de Claude Code (excepción a *.json global)
+!.claude/settings.json
