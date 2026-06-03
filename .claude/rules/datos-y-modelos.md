@@ -6,7 +6,8 @@
 - `data/processed/` — datasets finales para modelado.
 - `data/external/` — datos de terceros.
 - Accede siempre con `utils.config.RAW_DATA_DIR` / `PROCESSED_DATA_DIR` o
-  `utils.paths.data_dir("raw", ...)`. Nunca con rutas absolutas.
+  `utils.paths.data_dir("raw", ...)` (las funciones `*_dir` de `paths.py` se generan
+  dinámicamente). Nunca con rutas absolutas.
 
 ## Modelos ML
 - Los modelos entrenados viven en `models/` como `*.pkl`:

@@ -13,7 +13,8 @@
 - **Logging**: usa `logging` (patrón `self.logger = logger or logging.getLogger(__name__)` como en
   `domain/services/inference_service.py`). NO uses `print` en código de librería.
 - **Rutas**: usa `cedenar_anomalies.utils.config` (`BASE_DIR`, `DATA_DIR`, `MODELS_DIR`, etc.) y
-  `cedenar_anomalies.utils.paths` (`data_dir()`, `models_dir()`, ...). NO hardcodees rutas absolutas.
+  `cedenar_anomalies.utils.paths` (`data_dir()`, `models_dir()`, ... — funciones `*_dir` generadas
+  dinámicamente en `paths.py`). NO hardcodees rutas absolutas.
 - **Config/secretos**: lee variables con `os.getenv` vía `utils/config.py` (que hace
   `load_dotenv()`). NUNCA imprimas ni commitees el contenido de `.env`.
 

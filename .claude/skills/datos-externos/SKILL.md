@@ -11,7 +11,9 @@ Guía para las salidas de datos del proyecto hacia servicios de Google y Looker.
 
 - BigQuery: `application/send_to_BQ_anomalia.py`, `application/send_to_BQ_inference.py`
   (usan `google-cloud-bigquery` / `pandas-gbq` / `google-auth`).
-- Google Sheets: cargas vía `gspread` + `oauth2client` (scripts de `application/`).
+- Google Sheets: dependencias `gspread` + `oauth2client` disponibles en el proyecto (aún SIN
+  script dedicado en `application/`). Si creas uno, ponlo detrás de un adaptador en
+  `infrastructure/adapters/`.
 - Carga a DB de anomalías: `application/load_to_anomalia_db.py`,
   `application/load_inference_to_db.py`.
 - Túnel para Looker: `run_ngrok_for_looker.py` (raíz) +
