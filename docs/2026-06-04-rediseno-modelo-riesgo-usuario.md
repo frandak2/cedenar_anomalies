@@ -195,6 +195,30 @@ venv/bin/python cedenar_anomalies/application/inference.py
 **Modificados:** `domain/services/clustering_pipeline_service.py` (`PipelinePuntaje`), `application/train.py`, `application/tune_puntaje.py`, `application/make_inference_dataset.py`, `application/inference.py`, `PipelineExecutionTrain.sh`.
 **Sin cambios necesarios:** `application/send_to_BQ_inference.py` (el contrato de columnas se preserva; solo falta ejecutarlo con confirmación).
 
-Commits (rama `dev`): `ecb0f26`, `f79c0b6`, `f262abc`, `66fb2d1`, `62ec30b`, `847a2fb`, `82d8649` (+ docs/planes).
+Commits (rama `dev`, en orden, sin co-autor, sin push):
+
+| SHA | Descripción |
+|---|---|
+| `ecb0f26` | dataset a nivel usuario para modelo de riesgo |
+| `f79c0b6` | guard de entrada y logger `__name__` en make_user_dataset (revisión) |
+| `f262abc` | harness de validación CV del modelo de riesgo por usuario |
+| `66fb2d1` | modelo de riesgo a nivel usuario (cluster features + class_weight) |
+| `62ec30b` | class_weight balanced en fallback RF y docstring de tuning (revisión) |
+| `1aad66f` | planes de mejora de performance y etapa C inferencia (docs) |
+| `847a2fb` | inferencia de riesgo a nivel usuario (perfil → cluster → puntaje) |
+| `82d8649` | guard de columnas de salida y timestamp shell-safe en inferencia (revisión) |
+| `0304f00` | este documento (rediseño, sesgos, interpretación, schema BQ) |
+| `f2f67bb` | **preservar contrato de columnas BQ** en inferencia (`Ejecucion`/`kWh Rec`/`Nombre`) + doc |
 
 Planes relacionados: `docs/superpowers/plans/2026-06-03-mejora-performance-modelo-puntaje.md`, `docs/superpowers/plans/2026-06-04-etapa-c-inferencia-riesgo-usuario.md`.
+
+---
+
+## 10. Historial de decisiones clave
+
+- **Datos de entrenamiento:** solo el archivo nuevo `anomalias 2023-2026.xlsx`.
+- **Target:** severidad máxima por usuario (1–5), para mantener compatibilidad con el dashboard.
+- **Tuning Optuna:** ejecutado (300 trials, macro-F1); resultó peor en ROC-AUC que los defaults → se desplegaron los **defaults** y el tuning quedó archivado.
+- **Modelos de cluster `class_weight`:** balanceado tanto en LightGBM como en el fallback RandomForest.
+- **Contrato de BigQuery:** **se preservan todas las columnas** (incluidas `Ejecucion`, `kWh Rec`, `Nombre`) por requerimiento de Looker; cambia la granularidad (1 fila/usuario) y el significado de `puntaje`, no el esquema. `send_to_BQ_inference.py` no requiere cambios.
+- **Límites de la sesión:** sin `git push`; BigQuery sin tocar (pendiente de confirmación, trunca producción); modelos previos respaldados en `models/backup_pre_2023-2026/`.
