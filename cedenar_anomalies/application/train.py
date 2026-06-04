@@ -1,5 +1,6 @@
 # cedenar_anomalies/application/train.py
 
+import json
 import logging
 from pathlib import Path
 
@@ -49,8 +50,10 @@ def main():
             logger.error("No se entrenó ningún modelo. Verifica los datos de entrada.")
             return
 
-        # Entrenar modelos puntaje
-        best_params = {
+        # Entrenar modelos puntaje.
+        # Cargar best_params del tuning Optuna si existe; si no, usar los
+        # valores por defecto de un tuning previo (fallback reproducible).
+        default_params = {
             "n_estimators": 468,
             "learning_rate": 0.027112035074244662,
             "num_leaves": 116,
@@ -64,6 +67,14 @@ def main():
             "bagging_freq": 3,
             "feature_fraction": 0.9616425348024227,
         }
+        best_params_path = data_interim_dir("best_params_puntaje.json")
+        if Path(best_params_path).exists():
+            with open(best_params_path, encoding="utf-8") as fh:
+                best_params = json.load(fh)
+            logger.info(f"best_params cargados desde {best_params_path}")
+        else:
+            best_params = default_params
+            logger.info("Usando best_params por defecto (sin JSON de tuning)")
 
         pipe_puntaje = PipelinePuntaje(params=best_params, logger=logger)
         pipeline_puntaje = pipe_puntaje.fit(df)
