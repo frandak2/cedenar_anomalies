@@ -117,7 +117,11 @@ La salida (`data/interim/dataset_inference.csv`, 1 fila por usuario) tiene:
 | `cluster_id` | Grupo geográfico FCM dentro de la zona (contexto, no severidad). |
 | `puntaje` | **Severidad de riesgo predicha (1–5)**: la clase más probable. |
 | `puntaje_1 … puntaje_5` | **Propensiones** (probabilidades) a cada nivel de severidad. Suman ~1. |
-| `Ejecucion`, `kWh Rec`, `Nombre` | Columnas del **contrato** de BigQuery/Looker. A nivel usuario: `Ejecucion` = fecha de scoring; `kWh Rec` y `Nombre` = NULL (no aplican a una predicción). Se conservan para no romper tableros (ver §7). |
+| `Ejecucion` | Fecha de **scoring** del riesgo (cuándo se calculó). Columna del contrato. |
+| `kWh Rec` | **Suma histórica** de la energía recuperada de las anomalías del usuario (NULL si nunca tuvo). Mantiene vivas las agregaciones de kWh por cluster en Looker. |
+| `Nombre` | NULL (no hay una anomalía concreta asociada). Columna del contrato. |
+| `BARRIO_PRODUCTO`, `MUNICIPIO_PRODUCTO`, `SECCIONAL` | Atributos del usuario (del maestro). Dimensiones/filtros del dashboard. |
+| `ubi_usu1` | **No se genera aquí**: es un campo geográfico que Looker calcula desde `LATI_USU`/`LONG_USU`. |
 
 **Cómo priorizar inspecciones (recomendado):**
 - **No** ordenar solo por `puntaje` (clase): por el sesgo de selección, casi todos son 4–5.
@@ -132,31 +136,32 @@ La salida (`data/interim/dataset_inference.csv`, 1 fila por usuario) tiene:
 
 > La tabla `proyecto-ia-462422.Datos_IA_LK.Datos_Inference` (la que consume Looker) se carga con `WRITE_TRUNCATE` (borra y reemplaza). **El envío NO se ha ejecutado**; requiere confirmación explícita.
 
-### 7.1. Decisión: NO se cambian las columnas
-Las columnas de la tabla son un **contrato** del que dependen los tableros de Looker (filtros y agregaciones por `Ejecucion`, `kWh Rec`, `Nombre`, etc.). Por eso la inferencia a nivel usuario **emite exactamente las mismas 16 columnas** que antes; **el esquema de BigQuery no cambia**. Lo que cambia es la **granularidad** (ahora 1 fila por usuario) y el **significado** de algunas columnas, no su nombre ni su tipo.
+### 7.1. Decisión: se preserva el contrato de columnas (verificado contra el dashboard)
+Las columnas de la tabla son un **contrato** del que dependen los tableros de Looker (filtros y agregaciones por `Ejecucion`, `kWh Rec`, `Nombre`, `BARRIO_PRODUCTO`, etc.). La inferencia a nivel usuario emite **las 19 columnas que usa el dashboard**. **Hallazgo:** el `send_to_BQ_inference.py` original solo enviaba 16 columnas y **omitía** `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` (que el dashboard sí usa) — con `WRITE_TRUNCATE` se habrían **perdido**; se añadieron. Lo que cambia respecto al flujo viejo es la **granularidad** (1 fila/usuario) y el **significado** de algunas columnas, no el set de columnas del dashboard.
 
 ### 7.2. Cómo se poblan, a nivel usuario, las columnas de origen-anomalía
-Tres columnas provenían de una anomalía concreta y no aplican a un usuario del mapa de riesgo; se **conservan** para no romper el contrato, con estos valores:
-
 | Columna | Valor a nivel usuario | Motivo |
 |---|---|---|
-| `Ejecucion` (DATE) | **Fecha de scoring** (cuándo se calculó el riesgo) | Mantiene utilizable el filtro/eje temporal en Looker ("riesgo al corte X"). |
-| `kWh Rec` (FLOAT) | **NULL** | No hay energía recuperada en una predicción; las agregaciones (sum/avg) ignoran NULL. |
+| `Ejecucion` (DATE) | **Fecha de scoring** (cuándo se calculó el riesgo) | Mantiene utilizable el filtro/eje temporal en Looker. |
+| `kWh Rec` (FLOAT) | **Suma histórica** de la energía recuperada de las anomalías del usuario (NULL si nunca tuvo) | Reproduce los totales de los gráficos de kWh por cluster (igual que cuando era por anomalía). |
 | `Nombre` (STRING) | **NULL** | No hay una anomalía concreta asociada al usuario. |
+
+Columnas de perfil del usuario que el dashboard usa como dimensiones/filtros, arrastradas desde el maestro `cedenar_data.xlsx`: `BARRIO_PRODUCTO`, `MUNICIPIO_PRODUCTO`, `SECCIONAL` (STRING).
 
 Además, sin cambiar nombre ni tipo:
 - `puntaje` (INTEGER): pasa de ser la severidad **real** de la anomalía a la severidad **predicha** del usuario (mismo dominio 1–5).
 - `Cluster` (STRING): el `cluster_id` del modelo se renombra a `Cluster` en `send_to_BQ_inference.py` (igual que antes).
+- `ubi_usu1`: campo geográfico **calculado por Looker** desde `LATI_USU`/`LONG_USU`; no se genera en el pipeline.
 
-### 7.3. Esquema (16 columnas, sin cambios respecto al contrato)
-`Usuario` INTEGER · `Ejecucion` DATE · `AREA` STRING · `PLAN_COMERCIAL` STRING · `Nombre` STRING · `kWh_Rec` FLOAT · `Cluster` STRING · `puntaje` INTEGER · `puntaje_1..5` FLOAT · `LATI_USU` FLOAT · `LONG_USU` FLOAT · `ZONA` STRING.
+### 7.3. Esquema (19 columnas del contrato)
+`Usuario` INTEGER · `Ejecucion` DATE · `AREA` STRING · `PLAN_COMERCIAL` STRING · `Nombre` STRING · `kWh_Rec` FLOAT · `Cluster` STRING · `puntaje` INTEGER · `puntaje_1..5` FLOAT · `LATI_USU` FLOAT · `LONG_USU` FLOAT · `ZONA` STRING · `BARRIO_PRODUCTO` STRING · `MUNICIPIO_PRODUCTO` STRING · `SECCIONAL` STRING.
 
-(En el CSV de inferencia las columnas se llaman `kWh Rec` y `cluster_id`; `send_to_BQ_inference.py` las renombra a `kWh_Rec` y `Cluster` como siempre.)
+(En el CSV de inferencia las columnas se llaman `kWh Rec` y `cluster_id`; `send_to_BQ_inference.py` las renombra a `kWh_Rec` y `Cluster`.)
 
 ### 7.4. Impacto en Looker
-- **Ningún tablero se rompe**: todas las columnas del contrato siguen presentes con su mismo nombre y tipo.
+- **Ningún tablero se rompe**: todas las columnas del contrato siguen presentes con su nombre y tipo (incluidas las 3 que el script antes omitía).
 - Filtros/ejes por `Ejecucion` funcionan (ahora marcan la fecha de cálculo del riesgo).
-- Tiles que dependían de `kWh Rec`/`Nombre` mostrarán **vacío/NULL** para las filas de riesgo (no fallan; simplemente esos campos no aplican a una predicción).
+- Los gráficos de `kWh Rec` por cluster **siguen funcionando** (ahora suman la energía recuperada histórica por usuario). `Nombre` queda NULL (no aplica a una predicción).
 - **Granularidad nueva**: 1 fila por usuario (antes varias por usuario). Revisar conteos/medidas que asumían múltiples filas por usuario (p.ej. `COUNT(*)` ahora cuenta usuarios, no anomalías).
 - `puntaje` ahora es riesgo **predicho**; para priorizar, usar el ranking por propensión (`puntaje_5`) — ver §6.
 
@@ -185,15 +190,14 @@ venv/bin/python cedenar_anomalies/application/inference.py
 # salida: data/interim/dataset_inference.csv (1 fila/usuario)
 ```
 
-**Publicar a BigQuery (pendiente de confirmación):** `send_to_BQ_inference.py` funciona **sin cambios** — el CSV ya trae las 16 columnas del contrato (renombra `cluster_id`→`Cluster` y `kWh Rec`→`kWh_Rec` como siempre). Ejecutar **solo con confirmación** (trunca la tabla de producción).
+**Publicar a BigQuery (pendiente de confirmación):** `send_to_BQ_inference.py` ya quedó alineado con el contrato de **19 columnas** (renombra `cluster_id`→`Cluster` y `kWh Rec`→`kWh_Rec`, e incluye `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL`). Ejecutar **solo con confirmación** (trunca la tabla de producción).
 
 ---
 
 ## 9. Archivos y commits
 
 **Nuevos:** `application/make_user_dataset.py`, `application/validate_risk.py`.
-**Modificados:** `domain/services/clustering_pipeline_service.py` (`PipelinePuntaje`), `application/train.py`, `application/tune_puntaje.py`, `application/make_inference_dataset.py`, `application/inference.py`, `PipelineExecutionTrain.sh`.
-**Sin cambios necesarios:** `application/send_to_BQ_inference.py` (el contrato de columnas se preserva; solo falta ejecutarlo con confirmación).
+**Modificados:** `domain/services/clustering_pipeline_service.py` (`PipelinePuntaje`), `application/train.py`, `application/tune_puntaje.py`, `application/make_inference_dataset.py`, `application/inference.py`, `application/send_to_BQ_inference.py` (esquema de 19 columnas del contrato), `PipelineExecutionTrain.sh`.
 
 Commits (rama `dev`, en orden, sin co-autor, sin push):
 
@@ -208,7 +212,10 @@ Commits (rama `dev`, en orden, sin co-autor, sin push):
 | `847a2fb` | inferencia de riesgo a nivel usuario (perfil → cluster → puntaje) |
 | `82d8649` | guard de columnas de salida y timestamp shell-safe en inferencia (revisión) |
 | `0304f00` | este documento (rediseño, sesgos, interpretación, schema BQ) |
-| `f2f67bb` | **preservar contrato de columnas BQ** en inferencia (`Ejecucion`/`kWh Rec`/`Nombre`) + doc |
+| `f2f67bb` | preservar contrato de columnas BQ en inferencia (`Ejecucion`/`kWh Rec`/`Nombre`) + doc |
+| `96ebac7` | actualizar doc (historial de commits y decisiones) |
+| `15e5c13` | **preservar columnas del dashboard** `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` en inferencia y schema BQ |
+| `c41de48` | `kWh Rec` = **suma histórica** por usuario (preserva gráficos kWh de Looker) |
 
 Planes relacionados: `docs/superpowers/plans/2026-06-03-mejora-performance-modelo-puntaje.md`, `docs/superpowers/plans/2026-06-04-etapa-c-inferencia-riesgo-usuario.md`.
 
@@ -220,5 +227,5 @@ Planes relacionados: `docs/superpowers/plans/2026-06-03-mejora-performance-model
 - **Target:** severidad máxima por usuario (1–5), para mantener compatibilidad con el dashboard.
 - **Tuning Optuna:** ejecutado (300 trials, macro-F1); resultó peor en ROC-AUC que los defaults → se desplegaron los **defaults** y el tuning quedó archivado.
 - **Modelos de cluster `class_weight`:** balanceado tanto en LightGBM como en el fallback RandomForest.
-- **Contrato de BigQuery:** **se preservan todas las columnas** (incluidas `Ejecucion`, `kWh Rec`, `Nombre`) por requerimiento de Looker; cambia la granularidad (1 fila/usuario) y el significado de `puntaje`, no el esquema. `send_to_BQ_inference.py` no requiere cambios.
+- **Contrato de BigQuery (verificado contra el dashboard):** se preservan **las 19 columnas** que usa Looker. Al revisar el dashboard se detectó que `send_to_BQ_inference.py` omitía `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` (riesgo latente con `WRITE_TRUNCATE`) → se añadieron. `kWh Rec` se rellena con la **suma histórica** por usuario para mantener los gráficos de kWh por cluster. Cambia la granularidad (1 fila/usuario) y el significado de `puntaje`, no el set de columnas.
 - **Límites de la sesión:** sin `git push`; BigQuery sin tocar (pendiente de confirmación, trunca producción); modelos previos respaldados en `models/backup_pre_2023-2026/`.
