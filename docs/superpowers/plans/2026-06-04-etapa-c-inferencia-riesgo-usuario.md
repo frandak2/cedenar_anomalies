@@ -2,6 +2,8 @@
 
 > Plan derivado (la Etapa C del plan de mejora de performance se difería a "un plan aparte tras validar A/B"). A y B ya están validadas/desplegadas (ROC-AUC ~0.87). Ejecutar con `venv/bin/python`. Commits sin línea de co-autor. **No hacer `git push`. El envío a BigQuery trunca producción → requiere confirmación explícita aparte.**
 
+> **ESTADO: ✅ EJECUTADO (2026-06-04).** Inferencia a nivel usuario desplegada y **BigQuery cargado** (537.533 filas en `Datos_Inference`); rama `dev` pusheada. **Desviación respecto a este plan:** el esquema de BQ **NO se redujo** — el contrato del dashboard de Looker exige conservar todas las columnas. La salida final tiene **19 columnas** (incluidas `Ejecucion`, `kWh Rec`, `Nombre`, `BARRIO_PRODUCTO`, `MUNICIPIO_PRODUCTO`, `SECCIONAL`); `kWh Rec` = **suma histórica por usuario**. Detalle en `docs/2026-06-04-rediseno-modelo-riesgo-usuario.md`.
+
 **Goal:** Que la inferencia produzca un **score de riesgo por usuario** (severidad máx 1-5 + propensiones `puntaje_1..5`) coherente con el modelo entrenado en la Etapa B (nivel usuario, features de cluster, `class_weight='balanced'`).
 
 ## Context

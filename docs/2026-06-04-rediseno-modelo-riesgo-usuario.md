@@ -1,6 +1,6 @@
 # Rediseño del modelo de anomalías → modelo de riesgo por usuario
 
-**Fecha:** 2026-06-04 · **Rama:** `dev` · **Estado:** desplegado localmente (entrenamiento + inferencia). Publicación a BigQuery/Looker pendiente de confirmación.
+**Fecha:** 2026-06-04 · **Rama:** `dev` (pusheada a `origin`) · **Estado:** **en producción** — modelos reentrenados, inferencia generada, tabla de BigQuery `Datos_Inference` cargada (537.533 filas) y Looker en uso.
 
 Este documento explica **qué cambió, por qué, qué se gana, qué sesgos tiene, cómo se interpretan las predicciones y cómo/por qué cambia el esquema de BigQuery.**
 
@@ -134,7 +134,7 @@ La salida (`data/interim/dataset_inference.csv`, 1 fila por usuario) tiene:
 
 ## 7. Esquema de BigQuery: se PRESERVA el contrato
 
-> La tabla `proyecto-ia-462422.Datos_IA_LK.Datos_Inference` (la que consume Looker) se carga con `WRITE_TRUNCATE` (borra y reemplaza). **El envío NO se ha ejecutado**; requiere confirmación explícita.
+> La tabla `proyecto-ia-462422.Datos_IA_LK.Datos_Inference` (la que consume Looker) se carga con `WRITE_TRUNCATE` (borra y reemplaza). **El envío YA se ejecutó** el 2026-06-04: **537.533 filas** cargadas (reemplazó las 537.524 previas), esquema de 19 columnas verificado contra la tabla viva.
 
 ### 7.1. Decisión: se preserva el contrato de columnas (verificado contra el dashboard)
 Las columnas de la tabla son un **contrato** del que dependen los tableros de Looker (filtros y agregaciones por `Ejecucion`, `kWh Rec`, `Nombre`, `BARRIO_PRODUCTO`, etc.). La inferencia a nivel usuario emite **las 19 columnas que usa el dashboard**. **Hallazgo:** el `send_to_BQ_inference.py` original solo enviaba 16 columnas y **omitía** `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` (que el dashboard sí usa) — con `WRITE_TRUNCATE` se habrían **perdido**; se añadieron. Lo que cambia respecto al flujo viejo es la **granularidad** (1 fila/usuario) y el **significado** de algunas columnas, no el set de columnas del dashboard.
@@ -190,7 +190,7 @@ venv/bin/python cedenar_anomalies/application/inference.py
 # salida: data/interim/dataset_inference.csv (1 fila/usuario)
 ```
 
-**Publicar a BigQuery (pendiente de confirmación):** `send_to_BQ_inference.py` ya quedó alineado con el contrato de **19 columnas** (renombra `cluster_id`→`Cluster` y `kWh Rec`→`kWh_Rec`, e incluye `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL`). Ejecutar **solo con confirmación** (trunca la tabla de producción).
+**Publicar a BigQuery (EJECUTADO 2026-06-04):** `send_to_BQ_inference.py` cargó **537.533 filas** a `Datos_Inference` con el contrato de **19 columnas** (renombra `cluster_id`→`Cluster` y `kWh Rec`→`kWh_Rec`, e incluye `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL`). Re-ejecutarlo vuelve a **truncar y reemplazar** la tabla de producción.
 
 ---
 
@@ -216,6 +216,9 @@ Commits (rama `dev`, en orden, sin co-autor, sin push):
 | `96ebac7` | actualizar doc (historial de commits y decisiones) |
 | `15e5c13` | **preservar columnas del dashboard** `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` en inferencia y schema BQ |
 | `c41de48` | `kWh Rec` = **suma histórica** por usuario (preserva gráficos kWh de Looker) |
+| `2c02401` | doc: contrato de 19 columnas y kWh histórico (verificado vs dashboard) |
+
+> **Despliegue 2026-06-04:** se ejecutó el envío a BigQuery (537.533 filas a `Datos_Inference`, `WRITE_TRUNCATE`) y se hizo `git push` de `dev` a `origin`. Los commits posteriores a `2c02401` son de documentación.
 
 Planes relacionados: `docs/superpowers/plans/2026-06-03-mejora-performance-modelo-puntaje.md`, `docs/superpowers/plans/2026-06-04-etapa-c-inferencia-riesgo-usuario.md`.
 
@@ -228,4 +231,4 @@ Planes relacionados: `docs/superpowers/plans/2026-06-03-mejora-performance-model
 - **Tuning Optuna:** ejecutado (300 trials, macro-F1); resultó peor en ROC-AUC que los defaults → se desplegaron los **defaults** y el tuning quedó archivado.
 - **Modelos de cluster `class_weight`:** balanceado tanto en LightGBM como en el fallback RandomForest.
 - **Contrato de BigQuery (verificado contra el dashboard):** se preservan **las 19 columnas** que usa Looker. Al revisar el dashboard se detectó que `send_to_BQ_inference.py` omitía `BARRIO_PRODUCTO`/`MUNICIPIO_PRODUCTO`/`SECCIONAL` (riesgo latente con `WRITE_TRUNCATE`) → se añadieron. `kWh Rec` se rellena con la **suma histórica** por usuario para mantener los gráficos de kWh por cluster. Cambia la granularidad (1 fila/usuario) y el significado de `puntaje`, no el set de columnas.
-- **Límites de la sesión:** sin `git push`; BigQuery sin tocar (pendiente de confirmación, trunca producción); modelos previos respaldados en `models/backup_pre_2023-2026/`.
+- **Despliegue final (2026-06-04):** envío a BigQuery ejecutado (`Datos_Inference`, 537.533 filas, `WRITE_TRUNCATE`) y rama `dev` pusheada a `origin`. Modelos previos respaldados en `models/backup_pre_2023-2026/` (rollback disponible).

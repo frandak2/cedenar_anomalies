@@ -2,6 +2,8 @@
 
 > **For agentic workers:** SUB-SKILL: superpowers:executing-plans. Ejecuta con `venv/bin/python` (poetry no está en PATH). Pasos con checkbox `- [ ]`.
 
+> **ESTADO: ✅ EJECUTADO (2026-06-04).** Etapas A y B completas y desplegadas; modelo de riesgo por usuario con **ROC-AUC 0.87** (vs 0.51). El tuning Optuna resultó marginal → se desplegaron los `default_params`. Inferencia + carga a BigQuery + `git push` realizados. Detalle y resultados en `docs/2026-06-04-rediseno-modelo-riesgo-usuario.md`.
+
 **Goal:** Subir el performance del modelo corrigiendo los errores de diseño detectados: reformular la tarea a **riesgo por usuario** (1 fila/usuario, target = severidad máxima 1-5), re-añadir las features de cluster perdidas y el balanceo de clases, y **validar la mejora con CV correcta antes de desplegar**.
 
 **Architecture:** Dos etapas. **Etapa A (probar valor):** construir dataset a nivel usuario + harness de validación cruzada que mide el nuevo enfoque vs líneas base, SIN tocar producción. **Etapa B (desplegar, condicionada a A):** llevar el rediseño a `PipelinePuntaje` / `train.py` / pipeline `.sh` / tuning, y alinear la inferencia.
