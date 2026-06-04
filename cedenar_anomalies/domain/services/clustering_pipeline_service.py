@@ -287,6 +287,7 @@ class PipelinePuntaje:
             rf_params.setdefault("n_estimators", 100)
             rf_params.setdefault("random_state", 42)
             rf_params.setdefault("n_jobs", -1)
+            rf_params.setdefault("class_weight", "balanced")
 
             lgbm_class = LGBMClassifier(**rf_params)
 

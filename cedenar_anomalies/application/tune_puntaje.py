@@ -3,7 +3,7 @@
 
 Reutiliza PipelinePuntaje.build_pipeline() para que los mejores parámetros sean
 óptimos exactamente para el pipeline de producción. Replica la búsqueda del
-notebook LGBM_class.ipynb: 5-fold StratifiedKFold, ROC-AUC weighted OVR y
+notebook LGBM_class.ipynb: 5-fold StratifiedKFold, F1 macro y
 penalización de overfitting (alpha=0.3).
 """
 
