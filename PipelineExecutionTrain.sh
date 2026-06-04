@@ -18,7 +18,7 @@ run_script() {
     start_time=$(date +%s)
     
     # Run the script through Poetry
-    poetry run python "$script_path" 2>&1 | tee -a $LOG_FILE
+    poetry run python "$script_path" "${@:2}" 2>&1 | tee -a $LOG_FILE
     exit_code=${PIPESTATUS[0]}
     
     end_time=$(date +%s)
@@ -38,22 +38,31 @@ PROJECT_ROOT="$(pwd)"
 
 # Define script paths
 MAKE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/make_train_dataset.py"
-INFERENCE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/train.py"
+TUNE_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/tune_puntaje.py"
+TRAIN_SCRIPT="$PROJECT_ROOT/cedenar_anomalies/application/train.py"
+
+# Número de trials de Optuna (override con: TUNE_TRIALS=50 bash PipelineExecutionTrain.sh)
+TUNE_TRIALS="${TUNE_TRIALS:-300}"
 
 # Check if scripts exist
-for script in "$MAKE_SCRIPT" "$INFERENCE_SCRIPT"; do
+for script in "$MAKE_SCRIPT" "$TUNE_SCRIPT" "$TRAIN_SCRIPT"; do
     if [ ! -f "$script" ]; then
         echo "$(date) - ERROR - Script not found: $script" | tee -a $LOG_FILE
         exit 1
     fi
 done
 
-# Run scripts in sequence
+# Run scripts in sequence: make_train_dataset -> tune_puntaje (Optuna) -> train
 if run_script "$MAKE_SCRIPT"; then
-    if run_script "$INFERENCE_SCRIPT"; then
-        echo "$(date) - INFO - Pipeline execution completed successfully" | tee -a $LOG_FILE
+    if run_script "$TUNE_SCRIPT" --trials "$TUNE_TRIALS"; then
+        if run_script "$TRAIN_SCRIPT"; then
+            echo "$(date) - INFO - Pipeline execution completed successfully" | tee -a $LOG_FILE
+        else
+            echo "$(date) - ERROR - Pipeline stopped due to failure in train.py" | tee -a $LOG_FILE
+            exit 1
+        fi
     else
-        echo "$(date) - ERROR - Pipeline stopped due to failure in train.py" | tee -a $LOG_FILE
+        echo "$(date) - ERROR - Pipeline stopped due to failure in tune_puntaje.py" | tee -a $LOG_FILE
         exit 1
     fi
 else
