@@ -51,13 +51,22 @@ def main():
     # puntaje_pred (1-5) es el riesgo predicho; renombrar para el dashboard
     df = df.rename(columns={"puntaje_pred": "puntaje"})
 
+    # Columnas del CONTRATO de BigQuery/Looker que provienen de una anomalía
+    # concreta y no aplican a nivel usuario; se conservan para NO romper el
+    # esquema ni los tableros (filtros/agregaciones existentes):
+    #   Ejecucion = fecha de scoring del riesgo; kWh Rec / Nombre = N/A (NULL).
+    df["Ejecucion"] = pd.Timestamp.now().date()
+    df["kWh Rec"] = pd.NA
+    df["Nombre"] = pd.NA
+
+    # Orden de columnas = contrato existente de la tabla Datos_Inference.
     out_cols = [
         "Usuario",
-        "ZONA",
+        "Ejecucion",
         "AREA",
         "PLAN_COMERCIAL",
-        "LATI_USU",
-        "LONG_USU",
+        "Nombre",
+        "kWh Rec",
         "cluster_id",
         "puntaje",
         "puntaje_1",
@@ -65,6 +74,9 @@ def main():
         "puntaje_3",
         "puntaje_4",
         "puntaje_5",
+        "LATI_USU",
+        "LONG_USU",
+        "ZONA",
     ]
     faltan = [c for c in out_cols if c not in df.columns]
     if faltan:

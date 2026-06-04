@@ -67,7 +67,7 @@ La inferencia ahora produce un **mapa de riesgo por usuario** (537.533 usuarios)
 - **Resultado:** el tuning (300 trials) dio una mejora marginal y **peor ROC-AUC** que los defaults (0.858 vs 0.870), porque optimiza macro-F1 y sacrifica ranking. **Se desplegaron los defaults**; el tuning quedó archivado (`data/interim/best_params_puntaje.tuned.json`). Confirma que la ganancia vino del rediseño, no del tuning.
 
 ### 3.8. Inferencia a nivel usuario
-- **Cambio:** `make_inference_dataset.py` y `inference.py` reescritos: leen el **maestro de usuarios** `cedenar_data.xlsx`, una fila por usuario, clusterizan (`predict_all_zones`) y aplican el modelo de riesgo. Salida: 13 columnas por usuario.
+- **Cambio:** `make_inference_dataset.py` y `inference.py` reescritos: leen el **maestro de usuarios** `cedenar_data.xlsx`, una fila por usuario, clusterizan (`predict_all_zones`) y aplican el modelo de riesgo. Salida: 1 fila por usuario con las **16 columnas del contrato** de `Datos_Inference` (las columnas de origen-anomalía se conservan; ver §7).
 - **Por qué:** alinear inferencia con el nuevo modelo y producir el mapa de riesgo de **todos** los usuarios (no solo los que ya tienen anomalía).
 
 ---
@@ -117,6 +117,7 @@ La salida (`data/interim/dataset_inference.csv`, 1 fila por usuario) tiene:
 | `cluster_id` | Grupo geográfico FCM dentro de la zona (contexto, no severidad). |
 | `puntaje` | **Severidad de riesgo predicha (1–5)**: la clase más probable. |
 | `puntaje_1 … puntaje_5` | **Propensiones** (probabilidades) a cada nivel de severidad. Suman ~1. |
+| `Ejecucion`, `kWh Rec`, `Nombre` | Columnas del **contrato** de BigQuery/Looker. A nivel usuario: `Ejecucion` = fecha de scoring; `kWh Rec` y `Nombre` = NULL (no aplican a una predicción). Se conservan para no romper tableros (ver §7). |
 
 **Cómo priorizar inspecciones (recomendado):**
 - **No** ordenar solo por `puntaje` (clase): por el sesgo de selección, casi todos son 4–5.
@@ -127,39 +128,37 @@ La salida (`data/interim/dataset_inference.csv`, 1 fila por usuario) tiene:
 
 ---
 
-## 7. Cambio del esquema de BigQuery (y por qué)
+## 7. Esquema de BigQuery: se PRESERVA el contrato
 
-> La tabla `proyecto-ia-462422.Datos_IA_LK.Datos_Inference` (la que consume Looker) se carga con `WRITE_TRUNCATE` (borra y reemplaza). **El envío NO se ha ejecutado**; requiere confirmación explícita y actualizar `send_to_BQ_inference.py`.
+> La tabla `proyecto-ia-462422.Datos_IA_LK.Datos_Inference` (la que consume Looker) se carga con `WRITE_TRUNCATE` (borra y reemplaza). **El envío NO se ha ejecutado**; requiere confirmación explícita.
 
-### 7.1. Por qué cambia
-El esquema antiguo era **por anomalía** e incluía columnas propias de cada evento de anomalía (`Ejecucion`, `kWh_Rec`, `Nombre`). El nuevo modelo es **por usuario**: esas columnas dejan de tener sentido (un usuario en el mapa de riesgo no corresponde a una anomalía concreta con fecha/energía recuperada). Además, antes `puntaje` era la severidad **real** de la anomalía; ahora es la severidad **predicha** del usuario.
+### 7.1. Decisión: NO se cambian las columnas
+Las columnas de la tabla son un **contrato** del que dependen los tableros de Looker (filtros y agregaciones por `Ejecucion`, `kWh Rec`, `Nombre`, etc.). Por eso la inferencia a nivel usuario **emite exactamente las mismas 16 columnas** que antes; **el esquema de BigQuery no cambia**. Lo que cambia es la **granularidad** (ahora 1 fila por usuario) y el **significado** de algunas columnas, no su nombre ni su tipo.
 
-### 7.2. Esquema ANTES (por anomalía) vs DESPUÉS (por usuario)
+### 7.2. Cómo se poblan, a nivel usuario, las columnas de origen-anomalía
+Tres columnas provenían de una anomalía concreta y no aplican a un usuario del mapa de riesgo; se **conservan** para no romper el contrato, con estos valores:
 
-| Columna (BQ) | Antes | Después | Cambio |
-|---|---|---|---|
-| `Usuario` | INTEGER | INTEGER | igual |
-| `ZONA` | STRING | STRING | igual |
-| `AREA` | STRING | STRING | igual |
-| `PLAN_COMERCIAL` | STRING | STRING | igual |
-| `LATI_USU` | FLOAT | FLOAT | igual |
-| `LONG_USU` | FLOAT | FLOAT | igual |
-| `Cluster` / `cluster_id` | STRING (`Cluster`) | INTEGER (`cluster_id`) | renombrar + tipo |
-| `puntaje` | INTEGER (severidad **real** de la anomalía) | INTEGER (severidad **predicha** del usuario) | **cambia el significado** |
-| `puntaje_1..5` | FLOAT | FLOAT | igual |
-| `Ejecucion` | DATE | — | **eliminada** (propia de la anomalía) |
-| `kWh_Rec` | FLOAT | — | **eliminada** (propia de la anomalía) |
-| `Nombre` | STRING | — | **eliminada** (propia de la anomalía) |
-| **Granularidad** | varias filas por usuario | **1 fila por usuario** | clave |
+| Columna | Valor a nivel usuario | Motivo |
+|---|---|---|
+| `Ejecucion` (DATE) | **Fecha de scoring** (cuándo se calculó el riesgo) | Mantiene utilizable el filtro/eje temporal en Looker ("riesgo al corte X"). |
+| `kWh Rec` (FLOAT) | **NULL** | No hay energía recuperada en una predicción; las agregaciones (sum/avg) ignoran NULL. |
+| `Nombre` (STRING) | **NULL** | No hay una anomalía concreta asociada al usuario. |
 
-### 7.3. Esquema nuevo propuesto (13 columnas)
-`Usuario` INTEGER · `ZONA` STRING · `AREA` STRING · `PLAN_COMERCIAL` STRING · `LATI_USU` FLOAT · `LONG_USU` FLOAT · `cluster_id` INTEGER · `puntaje` INTEGER · `puntaje_1` FLOAT · `puntaje_2` FLOAT · `puntaje_3` FLOAT · `puntaje_4` FLOAT · `puntaje_5` FLOAT.
+Además, sin cambiar nombre ni tipo:
+- `puntaje` (INTEGER): pasa de ser la severidad **real** de la anomalía a la severidad **predicha** del usuario (mismo dominio 1–5).
+- `Cluster` (STRING): el `cluster_id` del modelo se renombra a `Cluster` en `send_to_BQ_inference.py` (igual que antes).
+
+### 7.3. Esquema (16 columnas, sin cambios respecto al contrato)
+`Usuario` INTEGER · `Ejecucion` DATE · `AREA` STRING · `PLAN_COMERCIAL` STRING · `Nombre` STRING · `kWh_Rec` FLOAT · `Cluster` STRING · `puntaje` INTEGER · `puntaje_1..5` FLOAT · `LATI_USU` FLOAT · `LONG_USU` FLOAT · `ZONA` STRING.
+
+(En el CSV de inferencia las columnas se llaman `kWh Rec` y `cluster_id`; `send_to_BQ_inference.py` las renombra a `kWh_Rec` y `Cluster` como siempre.)
 
 ### 7.4. Impacto en Looker
-- Los reportes que usaban `Ejecucion`, `kWh_Rec` o `Nombre` deben ajustarse (esas columnas desaparecen).
-- Mantener `puntaje`, `puntaje_1..5` evita romper visualizaciones de severidad/propensión.
-- Si algún tablero referenciaba `Cluster` (STRING), cambiar a `cluster_id` (INTEGER).
-- Al ser 1 fila por usuario, los conteos/uniqueness cambian (ya no hay duplicados por usuario).
+- **Ningún tablero se rompe**: todas las columnas del contrato siguen presentes con su mismo nombre y tipo.
+- Filtros/ejes por `Ejecucion` funcionan (ahora marcan la fecha de cálculo del riesgo).
+- Tiles que dependían de `kWh Rec`/`Nombre` mostrarán **vacío/NULL** para las filas de riesgo (no fallan; simplemente esos campos no aplican a una predicción).
+- **Granularidad nueva**: 1 fila por usuario (antes varias por usuario). Revisar conteos/medidas que asumían múltiples filas por usuario (p.ej. `COUNT(*)` ahora cuenta usuarios, no anomalías).
+- `puntaje` ahora es riesgo **predicho**; para priorizar, usar el ranking por propensión (`puntaje_5`) — ver §6.
 
 ---
 
@@ -186,7 +185,7 @@ venv/bin/python cedenar_anomalies/application/inference.py
 # salida: data/interim/dataset_inference.csv (1 fila/usuario)
 ```
 
-**Publicar a BigQuery (pendiente):** actualizar `send_to_BQ_inference.py` al esquema de §7.3 y ejecutar **solo con confirmación** (trunca producción).
+**Publicar a BigQuery (pendiente de confirmación):** `send_to_BQ_inference.py` funciona **sin cambios** — el CSV ya trae las 16 columnas del contrato (renombra `cluster_id`→`Cluster` y `kWh Rec`→`kWh_Rec` como siempre). Ejecutar **solo con confirmación** (trunca la tabla de producción).
 
 ---
 
@@ -194,7 +193,7 @@ venv/bin/python cedenar_anomalies/application/inference.py
 
 **Nuevos:** `application/make_user_dataset.py`, `application/validate_risk.py`.
 **Modificados:** `domain/services/clustering_pipeline_service.py` (`PipelinePuntaje`), `application/train.py`, `application/tune_puntaje.py`, `application/make_inference_dataset.py`, `application/inference.py`, `PipelineExecutionTrain.sh`.
-**Pendiente:** `application/send_to_BQ_inference.py` (esquema BQ).
+**Sin cambios necesarios:** `application/send_to_BQ_inference.py` (el contrato de columnas se preserva; solo falta ejecutarlo con confirmación).
 
 Commits (rama `dev`): `ecb0f26`, `f79c0b6`, `f262abc`, `66fb2d1`, `62ec30b`, `847a2fb`, `82d8649` (+ docs/planes).
 
