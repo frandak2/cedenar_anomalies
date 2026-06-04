@@ -5,6 +5,7 @@ Target = severidad máxima (max puntaje) por usuario. Las features de perfil son
 constantes por usuario (verificado), así que se toma la primera ocurrencia.
 """
 import logging
+from pathlib import Path
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ from cedenar_anomalies.utils.paths import data_interim_dir
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("make_user_dataset")
+logger = logging.getLogger(__name__)
 
 PROFILE_COLS = [
     "LATI_USU",
@@ -32,7 +33,11 @@ PROFILE_COLS = [
 
 
 def main():
-    df = pd.read_csv(data_interim_dir("01_dataset_train_clean.csv"))
+    data_path = data_interim_dir("01_dataset_train_clean.csv")
+    if not Path(data_path).exists():
+        logger.error("Archivo de entrada no encontrado: %s", data_path)
+        return
+    df = pd.read_csv(data_path)
     df = df.dropna(subset=["puntaje"]).copy()
     df["puntaje"] = df["puntaje"].astype(int)
     logger.info(
