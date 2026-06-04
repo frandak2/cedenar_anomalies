@@ -60,7 +60,16 @@ try:
     df_procesado = pd.DataFrame()
 
     # STRING Types
-    string_cols = ["AREA", "Cluster", "Nombre", "PLAN_COMERCIAL", "ZONA"]
+    string_cols = [
+        "AREA",
+        "Cluster",
+        "Nombre",
+        "PLAN_COMERCIAL",
+        "ZONA",
+        "BARRIO_PRODUCTO",
+        "MUNICIPIO_PRODUCTO",
+        "SECCIONAL",
+    ]
     for col in string_cols:
         if col in df.columns:
             df_procesado[col] = (
@@ -131,6 +140,9 @@ try:
         "puntaje_5",
         "Usuario",
         "ZONA",
+        "BARRIO_PRODUCTO",
+        "MUNICIPIO_PRODUCTO",
+        "SECCIONAL",
     ]
 
     # Reordenar y seleccionar solo las columnas necesarias
@@ -186,6 +198,9 @@ try:
             "Usuario", "INTEGER", mode="NULLABLE"
         ),  # O INTEGER si estás seguro que no hay decimales
         bigquery.SchemaField("ZONA", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("BARRIO_PRODUCTO", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("MUNICIPIO_PRODUCTO", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("SECCIONAL", "STRING", mode="NULLABLE"),
     ]
 
     job_config = bigquery.LoadJobConfig(

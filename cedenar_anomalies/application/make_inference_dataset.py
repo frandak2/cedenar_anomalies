@@ -25,6 +25,10 @@ PROFILE_COLS = [
     "SUB_CATEGORIA",
 ]
 
+# Columnas del contrato del dashboard de Looker (dimensiones/filtros), NO son
+# features del modelo; se arrastran tal cual desde el maestro de usuarios.
+EXTRA_CONTRACT_COLS = ["BARRIO_PRODUCTO", "MUNICIPIO_PRODUCTO", "SECCIONAL"]
+
 
 def main():
     """Construye el dataset de inferencia a nivel usuario desde el maestro.
@@ -43,7 +47,7 @@ def main():
     logger.info("Maestro cargado: %s", df.shape)
 
     df = df.rename(columns={"PRODUCTO": "Usuario"})
-    cols = ["Usuario"] + PROFILE_COLS
+    cols = ["Usuario"] + PROFILE_COLS + EXTRA_CONTRACT_COLS
     faltan = [c for c in cols if c not in df.columns]
     if faltan:
         logger.error("Faltan columnas en el maestro: %s", faltan)

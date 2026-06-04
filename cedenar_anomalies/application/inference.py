@@ -77,6 +77,9 @@ def main():
         "LATI_USU",
         "LONG_USU",
         "ZONA",
+        "BARRIO_PRODUCTO",
+        "MUNICIPIO_PRODUCTO",
+        "SECCIONAL",
     ]
     faltan = [c for c in out_cols if c not in df.columns]
     if faltan:
