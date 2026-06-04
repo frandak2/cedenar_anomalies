@@ -59,6 +59,25 @@ def main():
     # Una fila por usuario
     df = df.drop_duplicates(subset=["Usuario"]).copy()
 
+    # kWh Rec a nivel usuario = suma histórica de la energía recuperada de sus
+    # anomalías (igual que antes era por anomalía; al sumar por cluster da el
+    # mismo total). NULL para usuarios sin anomalías registradas.
+    anomalies_file = data_raw_dir("anomalias 2023-2026.xlsx")
+    if Path(anomalies_file).exists():
+        anom = pd.read_excel(anomalies_file, usecols=["Usuario", "kWh Rec"])
+        kwh = anom.groupby("Usuario", as_index=False)["kWh Rec"].sum()
+        df = df.merge(kwh, on="Usuario", how="left")
+        logger.info(
+            "kWh Rec agregado: %d usuarios con energía recuperada",
+            int(df["kWh Rec"].notna().sum()),
+        )
+    else:
+        logger.warning(
+            "Archivo de anomalías no encontrado: %s; kWh Rec quedará vacío",
+            anomalies_file,
+        )
+        df["kWh Rec"] = pd.NA
+
     logger.info(
         "Dataset de inferencia: %s | usuarios: %d | zonas: %s",
         df.shape,
