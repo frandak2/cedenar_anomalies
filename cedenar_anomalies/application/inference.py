@@ -1,5 +1,4 @@
 # cedenar_anomalies/application/inference.py
-
 import logging
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from cedenar_anomalies.domain.services.clustering_pipeline_service import (
 )
 from cedenar_anomalies.utils.paths import data_interim_dir, data_processed_dir
 
-# Configurar logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -19,107 +17,69 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """
-    Función principal para predecir clusters por zona usando modelos previamente entrenados.
-    """
-    logger.info("Iniciando predicción de clusters por zona...")
+    """Inferencia de riesgo a nivel usuario: perfil -> cluster -> puntaje."""
+    logger.info("Iniciando inferencia de riesgo a nivel usuario...")
 
-    # --- Configuración ---
-
-    processed_output = "dataset_to_inference.csv"
-    data_path = data_interim_dir(processed_output)
-
-    output_sheet_path = data_interim_dir("dataset_inference.csv")
-    output_path = data_processed_dir(f"dataset_inference_{pd.Timestamp.now()}.csv")
-
+    data_path = data_interim_dir("dataset_to_inference.csv")
     if not Path(data_path).exists():
-        logger.error(f"Archivo de predicción no encontrado: {data_path}")
+        logger.error("Dataset de inferencia no encontrado: %s", data_path)
         return
 
-    # --- Cargar datos ---
-    try:
-        df = pd.read_csv(data_path)
-        logger.info(f"Datos de entrada cargados correctamente. Shape: {df.shape}")
-    except Exception as e:
-        logger.exception(f"Error al cargar archivo de predicción: {e}")
+    df = pd.read_csv(data_path)
+    logger.info("Datos cargados. Shape: %s", df.shape)
+
+    # --- Clustering por zona ---
+    pipe_cluster = PipelineClusterFzz(logger=logger)
+    pipelines_cluster = pipe_cluster.load_pipelines()
+    if not pipelines_cluster:
+        logger.error("No se encontraron pipelines de cluster entrenados.")
         return
 
-    # --- Cargar modelos y realizar predicciones de clusters por zona ---
-    try:
-        pipe_cluster = PipelineClusterFzz(logger=logger)
-        pipelines_cluster = pipe_cluster.load_pipelines()
+    df = pipe_cluster.predict_all_zones(df, pipelines_cluster)
+    if df.empty:
+        logger.error("La predicción de cluster no generó resultados.")
+        return
 
-        if not pipelines_cluster:
-            logger.error("No se encontraron modelos entrenados para predecir.")
-            return
+    # --- Modelo de riesgo (puntaje) ---
+    pipe_puntaje = PipelinePuntaje(use_cluster_features=True, logger=logger)
+    pipeline_puntaje = pipe_puntaje.load_pipeline()
+    if not pipeline_puntaje:
+        logger.error("No se encontró el modelo de puntaje entrenado.")
+        return
 
-        df_predicted_cluster = pipe_cluster.predict_all_zones(df, pipelines_cluster)
+    df = pipe_puntaje.predict(pipeline_puntaje, df)
+    # puntaje_pred (1-5) es el riesgo predicho; renombrar para el dashboard
+    df = df.rename(columns={"puntaje_pred": "puntaje"})
 
-        if df_predicted_cluster.empty:
-            logger.error("La predicción de cluster no generó resultados.")
-            return
+    out_cols = [
+        "Usuario",
+        "ZONA",
+        "AREA",
+        "PLAN_COMERCIAL",
+        "LATI_USU",
+        "LONG_USU",
+        "cluster_id",
+        "puntaje",
+        "puntaje_1",
+        "puntaje_2",
+        "puntaje_3",
+        "puntaje_4",
+        "puntaje_5",
+    ]
+    out_cols = [c for c in out_cols if c in df.columns]
+    result = df[out_cols].copy()
 
-        df_predicted_cluster.to_csv(data_interim_dir("dataset_cluster.csv"), index=False)
+    interim_out = data_interim_dir("dataset_inference.csv")
+    result.to_csv(interim_out, index=False)
+    processed_out = data_processed_dir(f"dataset_inference_{pd.Timestamp.now()}.csv")
+    result.to_csv(processed_out, index=False)
 
-        pipe_puntaje = PipelinePuntaje(logger=logger)
-        pipeline_puntaje = pipe_puntaje.load_pipeline()
-
-        if not pipeline_puntaje:
-            logger.error("No se encontraron modelos entrenados para predecir.")
-            return
-
-        df_predicted_puntaje = pipe_puntaje.predict(
-            pipeline_puntaje, df_predicted_cluster
-        )
-
-        if df_predicted_puntaje.empty:
-            logger.error("La predicción de puntaje no generó resultados.")
-            return
-
-        df_predicted_puntaje["Usuario"] = df_predicted_puntaje["Usuario"].fillna(
-            df_predicted_puntaje["PRODUCTO"]
-        )
-
-        df_predicted_puntaje.to_csv(output_path, index=False)
-
-        cols_sheet = [
-            "Usuario",
-            "Ejecucion",
-            "AREA",
-            "PLAN_COMERCIAL",
-            "Nombre",
-            "kWh Rec",
-            "cluster_id",
-            "puntaje",
-            "puntaje_1",
-            "puntaje_2",
-            "puntaje_3",
-            "puntaje_4",
-            "puntaje_5",
-            "LATI_USU",
-            "LONG_USU",
-            "ZONA",
-        ]
-
-        df_predicted_puntaje[
-            df_predicted_puntaje[
-                ["AREA", "PLAN_COMERCIAL", "LATI_USU", "LONG_USU", "ZONA"]
-            ]
-            .isna()
-            .any(axis=1)
-        ].to_csv(data_interim_dir("errores_inference.csv"), index=False)
-        df_predicted_puntaje = df_predicted_puntaje.dropna(
-            subset=["AREA", "PLAN_COMERCIAL", "LATI_USU", "LONG_USU", "ZONA"]
-        ).copy()
-        df_predicted_puntaje = df_predicted_puntaje.drop_duplicates(
-            subset=cols_sheet
-        ).copy()
-        df_predicted_puntaje[cols_sheet].to_csv(output_sheet_path, index=False)
-
-        logger.info(f"Predicción completada y guardada en: {output_path}")
-
-    except Exception as e:
-        logger.exception(f"Error durante el proceso de predicción: {e}")
+    logger.info("Inferencia completada: %d usuarios", len(result))
+    logger.info(
+        "Distribución de puntaje (riesgo) predicho:\n%s",
+        result["puntaje"].value_counts().sort_index().to_string(),
+    )
+    logger.info("Guardado en: %s y %s", interim_out, processed_out)
 
 
 if __name__ == "__main__":
