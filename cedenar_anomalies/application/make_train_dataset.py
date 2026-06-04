@@ -93,6 +93,25 @@ def main():
             f"Procesamiento inicial completado. DataFrame shape: {processed_df.shape}"
         )
 
+        # Excluir zonas con muy pocos registros: no son modelables y rompen la
+        # estratificación (train_test_split / StratifiedKFold) aguas abajo.
+        min_zona_rows = 100
+        zona_counts = processed_df["ZONA"].value_counts()
+        zonas_excluidas = zona_counts[zona_counts < min_zona_rows]
+        if not zonas_excluidas.empty:
+            logger.warning(
+                "Zonas excluidas por <%d registros: %s",
+                min_zona_rows,
+                zonas_excluidas.to_dict(),
+            )
+        zonas_validas = zona_counts[zona_counts >= min_zona_rows].index
+        processed_df = processed_df[processed_df["ZONA"].isin(zonas_validas)].copy()
+        logger.info(
+            "Filas tras filtrar zonas con pocos datos: %d | zonas: %s",
+            len(processed_df),
+            sorted(processed_df["ZONA"].unique().tolist()),
+        )
+
         # Guardar datos procesados directamente con pandas
         processed_output_path = data_interim_dir(processed_output)
         processed_df.to_csv(processed_output_path, index=False)
