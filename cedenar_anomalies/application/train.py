@@ -26,7 +26,7 @@ def main():
     logger.info("Iniciando entrenamiento de modelos de clustering...")
 
     # Configuración
-    data_filename = "01_dataset_train_clean.csv"
+    data_filename = "02_dataset_train_user.csv"
     data_path = data_interim_dir(data_filename)
 
     if not Path(data_path).exists():
@@ -49,6 +49,9 @@ def main():
         if not pipelines:
             logger.error("No se entrenó ningún modelo. Verifica los datos de entrada.")
             return
+
+        # Añadir features de cluster (cluster_id + membresías) al dataset de usuario
+        df = pipe.predict_all_zones(df, pipelines)
 
         # Entrenar modelos puntaje.
         # Cargar best_params del tuning Optuna si existe; si no, usar los
@@ -76,7 +79,9 @@ def main():
             best_params = default_params
             logger.info("Usando best_params por defecto (sin JSON de tuning)")
 
-        pipe_puntaje = PipelinePuntaje(params=best_params, logger=logger)
+        pipe_puntaje = PipelinePuntaje(
+            params=best_params, use_cluster_features=True, logger=logger
+        )
         pipeline_puntaje = pipe_puntaje.fit(df)
 
         if not pipeline_puntaje:

@@ -5,7 +5,21 @@ from typing import Optional
 
 import joblib
 import pandas as pd
-from lightgbm import LGBMClassifier
+
+# Try to import LightGBM, fallback to RandomForest if system dependencies are missing
+try:
+    from lightgbm import LGBMClassifier
+
+    LIGHTGBM_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: LightGBM not available due to missing system dependencies: {e}")
+    print(
+        "Falling back to RandomForestClassifier. Install libgomp.so.1 for full LightGBM support."
+    )
+    from sklearn.ensemble import RandomForestClassifier as LGBMClassifier
+
+    LIGHTGBM_AVAILABLE = False
+
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import (
@@ -55,8 +69,8 @@ class PipelineClusterFzz:
         self.scores_path = models_dir(f"{distance}_{scores_path}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.scores = []
-        self.numerical_cols = ["LATI_USU","LONG_USU"]
-        self.categorical_cols = ["TRAFO_OPEN","AREA","PLAN_COMERCIAL","SUB_CATEGORIA"]
+        self.numerical_cols = ["LATI_USU", "LONG_USU"]
+        self.categorical_cols = ["TRAFO_OPEN", "AREA", "PLAN_COMERCIAL", "SUB_CATEGORIA"]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Inicializando PipelineClusterFzz")
 
@@ -106,7 +120,9 @@ class PipelineClusterFzz:
     def fit(self, df: pd.DataFrame, zona: str) -> Pipeline:
         self.logger.info(f"Iniciando entrenamiento para zona: {zona}")
         df_zone = df[df["ZONA"] == zona].copy()
-        df_zone = df_zone.drop_duplicates(subset= self.numerical_cols + self.categorical_cols).copy()
+        df_zone = df_zone.drop_duplicates(
+            subset=self.numerical_cols + self.categorical_cols
+        ).copy()
         pipeline = self.build_pipeline()
         pipeline.fit(df_zone)
         self.logger.info(f"Entrenamiento completado para zona: {zona}")
@@ -195,6 +211,7 @@ class PipelinePuntaje:
         params={},
         model_dir=models_dir(),
         scores_path="class_puntaje.csv",
+        use_cluster_features=True,
         logger: Optional[logging.Logger] = None,
     ):
         self.model_dir = model_dir
@@ -202,8 +219,24 @@ class PipelinePuntaje:
         self.scores_path = models_dir(f"metrics_{scores_path}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.scores = []
-        self.numerical_cols = ["LATI_USU","LONG_USU","LATI_TRAFO","LONG_TRAFO"]
-        self.categorical_cols = ["TRAFO_OPEN","FASES","KVA","AREA","PLAN_COMERCIAL","ZONA","CATEGORIA","SUB_CATEGORIA"]
+        self.numerical_cols = ["LATI_USU", "LONG_USU", "LATI_TRAFO", "LONG_TRAFO"]
+        self.categorical_cols = [
+            "TRAFO_OPEN",
+            "FASES",
+            "KVA",
+            "AREA",
+            "PLAN_COMERCIAL",
+            "ZONA",
+            "CATEGORIA",
+            "SUB_CATEGORIA",
+        ]
+        if use_cluster_features:
+            self.numerical_cols = self.numerical_cols + [
+                "cluster_0",
+                "cluster_1",
+                "cluster_2",
+            ]
+            self.categorical_cols = self.categorical_cols + ["cluster_id"]
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Inicializando PipelinePuntaje")
 
@@ -221,7 +254,41 @@ class PipelinePuntaje:
     def build_pipeline(self):
         self.logger.info("Construyendo pipeline de preprocesamiento para puntaje.")
 
-        lgbm_class = LGBMClassifier(verbose=-1, objective="multiclass", **self.params)
+        if LIGHTGBM_AVAILABLE:
+            self.logger.info("Usando LightGBM Classifier")
+            lgbm_class = LGBMClassifier(
+                verbose=-1,
+                objective="multiclass",
+                class_weight="balanced",
+                **self.params,
+            )
+        else:
+            self.logger.warning(
+                "LightGBM no disponible, usando RandomForest Classifier como alternativa"
+            )
+            # Map LightGBM parameters to RandomForest parameters
+            rf_params = {}
+            if "n_estimators" in self.params:
+                rf_params["n_estimators"] = self.params["n_estimators"]
+            if "max_depth" in self.params:
+                rf_params["max_depth"] = self.params["max_depth"]
+            if "min_child_samples" in self.params:
+                rf_params["min_samples_split"] = max(2, self.params["min_child_samples"])
+            if "max_bin" in self.params:
+                # RandomForest doesn't have max_bin, skip it
+                pass
+            if "bagging_fraction" in self.params:
+                # RandomForest doesn't have bagging_fraction, but we can use max_samples
+                rf_params["max_samples"] = self.params["bagging_fraction"]
+            if "feature_fraction" in self.params:
+                rf_params["max_features"] = self.params["feature_fraction"]
+
+            # Set some reasonable defaults for RandomForest
+            rf_params.setdefault("n_estimators", 100)
+            rf_params.setdefault("random_state", 42)
+            rf_params.setdefault("n_jobs", -1)
+
+            lgbm_class = LGBMClassifier(**rf_params)
 
         do_nothing_transformer = FunctionTransformer(self.do_nothing)
         convert_type_transformer = FunctionTransformer(self.convert_to_categorical)
@@ -245,26 +312,16 @@ class PipelinePuntaje:
         self.logger.info("Iniciando entrenamiento para puntaje")
         df = df.dropna(subset=["puntaje"])
 
-        # Crea la columna combinada para la estratificación
-        # Convertir a string para asegurar que la concatenación funcione bien
-        df["puntaje_zona_stratify"] = (
-            df["puntaje"].astype(str) + "_" + df["ZONA"].astype(str)
-        )
-        # Verificar la distribución de esta nueva columna
-        self.logger.info("Distribución de la columna de estratificación combinada:")
-        self.logger.info(df["puntaje_zona_stratify"].value_counts(normalize=True) * 100)
-
-        # Definir tus features (X) y target (y) desde el DataFrame filtrado df_knn_stratify
+        # Definir tus features (X) y target (y) desde el DataFrame filtrado
         X = df
-        y = df["puntaje"].astype(int)  # El target para KNN
-        stratify_col = df["puntaje_zona_stratify"]
+        y = df["puntaje"].astype(int)  # El target para el clasificador
 
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
             test_size=0.20,  # 80% entrenamiento, 20% prueba
             random_state=42,  # Para reproducibilidad
-            stratify=stratify_col,  # ¡Aquí se usa la columna combinada!
+            stratify=y,  # Estratificar por puntaje
         )
 
         self.logger.info(
@@ -336,8 +393,8 @@ class PipelinePuntaje:
         self.logger.info("Iniciando predicción con pipeline entrenado.")
         df = df.copy()
 
-        df['puntaje_pred'] = pipeline.predict(df)
-        df['puntaje_pred'] = df.puntaje_pred + 1
+        df["puntaje_pred"] = pipeline.predict(df)
+        df["puntaje_pred"] = df.puntaje_pred + 1
 
         # Obtener propension a puntaje
         matrix_pertenencia = pipeline.predict_proba(df)

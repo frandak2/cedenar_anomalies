@@ -14,11 +14,12 @@ import logging
 import optuna
 import pandas as pd
 from sklearn.base import clone
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import f1_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from cedenar_anomalies.domain.services.clustering_pipeline_service import (
+    PipelineClusterFzz,
     PipelinePuntaje,
 )
 from cedenar_anomalies.utils.paths import data_interim_dir
@@ -30,6 +31,17 @@ logger = logging.getLogger("tune_puntaje")
 
 N_SPLITS = 5
 ALPHA = 0.3
+
+
+def add_cluster_features(user_df):
+    """Clustering FCM por zona (no supervisado) para añadir features de cluster."""
+    cl = PipelineClusterFzz(logger=logger)
+    parts = []
+    for zona in user_df["ZONA"].unique():
+        pipe = cl.fit(user_df, zona)
+        dz = user_df[user_df["ZONA"] == zona].copy()
+        parts.append(cl.predict(pipe, dz))
+    return pd.concat(parts, ignore_index=True)
 
 
 def build_objective(x_train, y_train_encoded):
@@ -48,7 +60,9 @@ def build_objective(x_train, y_train_encoded):
             "bagging_freq": trial.suggest_int("bagging_freq", 1, 10),
             "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
         }
-        base_pipe = PipelinePuntaje(params=params, logger=logger).build_pipeline()
+        base_pipe = PipelinePuntaje(
+            params=params, use_cluster_features=True, logger=logger
+        ).build_pipeline()
         skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
         scores = []
         for train_idx, fold_idx in skf.split(x_train, y_train_encoded):
@@ -56,19 +70,9 @@ def build_objective(x_train, y_train_encoded):
             y_tr, y_fold = y_train_encoded[train_idx], y_train_encoded[fold_idx]
             model = clone(base_pipe)
             model.fit(x_tr, y_tr)
-            auc_train = roc_auc_score(
-                y_tr,
-                model.predict_proba(x_tr),
-                multi_class="ovr",
-                average="weighted",
-            )
-            auc_fold = roc_auc_score(
-                y_fold,
-                model.predict_proba(x_fold),
-                multi_class="ovr",
-                average="weighted",
-            )
-            scores.append((auc_train, auc_fold))
+            f1_train = f1_score(y_tr, model.predict(x_tr), average="macro")
+            f1_fold = f1_score(y_fold, model.predict(x_fold), average="macro")
+            scores.append((f1_train, f1_fold))
         scores_df = pd.DataFrame(scores, columns=["train_score", "fold_score"])
         fold_mean = scores_df.fold_score.mean()
         fold_std = scores_df.fold_score.std()
@@ -95,18 +99,19 @@ def main():
     parser.add_argument("--trials", type=int, default=300, help="Número de trials Optuna")
     args = parser.parse_args()
 
-    df = pd.read_csv(data_interim_dir("01_dataset_train_clean.csv"))
+    df = pd.read_csv(data_interim_dir("02_dataset_train_user.csv"))
     df = df.dropna(subset=["puntaje"])
     logger.info("Dataset de tuning cargado. Shape: %s", df.shape)
+    df = add_cluster_features(df)
+    logger.info("Con features de cluster. Shape: %s", df.shape)
 
-    df["puntaje_zona_stratify"] = df["puntaje"].astype(str) + "_" + df["ZONA"].astype(str)
     y = df["puntaje"].astype(int)
     x_train, _, y_train, _ = train_test_split(
         df,
         y,
         test_size=0.20,
         random_state=42,
-        stratify=df["puntaje_zona_stratify"],
+        stratify=y,
     )
     y_train_encoded = LabelEncoder().fit_transform(y_train)
     logger.info("X_train para tuning: %s", x_train.shape)
