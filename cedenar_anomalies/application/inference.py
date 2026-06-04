@@ -66,12 +66,16 @@ def main():
         "puntaje_4",
         "puntaje_5",
     ]
-    out_cols = [c for c in out_cols if c in df.columns]
+    faltan = [c for c in out_cols if c not in df.columns]
+    if faltan:
+        logger.warning("Columnas de salida ausentes (se omiten): %s", faltan)
+        out_cols = [c for c in out_cols if c in df.columns]
     result = df[out_cols].copy()
 
     interim_out = data_interim_dir("dataset_inference.csv")
     result.to_csv(interim_out, index=False)
-    processed_out = data_processed_dir(f"dataset_inference_{pd.Timestamp.now()}.csv")
+    ts = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    processed_out = data_processed_dir(f"dataset_inference_{ts}.csv")
     result.to_csv(processed_out, index=False)
 
     logger.info("Inferencia completada: %d usuarios", len(result))
